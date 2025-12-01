@@ -1,0 +1,15 @@
+
+## Seems to keep flipping J4 whenever crossing over Y=0 so build area might have to be offset
+
+## Lower Area
+Move L [*] X 400 Y -100 Z 100 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 400 Y -300 Z 100 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 500 Y -300 Z 100 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 500 Y -100 Z 100 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 400 Y -100 Z 100 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+## Upper Area
+Move L [*] X 400 Y -100 Z 300 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 400 Y -300 Z 300 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 500 Y -300 Z 300 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 500 Y -100 Z 300 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
+Move L [*] X 400 Y -100 Z 300 Rz 0 Ry 90 Rx 0.065 J7 0.00 J8 0.00 J9 0.00 Sp 100 Ac 15 Dc 15 Rm 80 Rnd 0 $ F
