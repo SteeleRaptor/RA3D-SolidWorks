@@ -27,6 +27,8 @@ class PrintController:
         self.lastF = 0.0
         self.lastE = 0.0
 
+        self.currentInstruction = 0
+
 
     def selectFile(self):
         # This list contains valid file types
@@ -34,7 +36,9 @@ class PrintController:
             ("GCode Files", "*.gcode"),
             ("All Files", "*.*")
         ]
+        # Have user select a file
         self.selectedFilepath = filedialog.askopenfilename(filetypes=filetypes)
+        # Check if user actually selected a file
         if (self.selectedFilepath == ""):
             print("No file selected")
             self.root.selectedFileLabel.config(text="No file selected")
@@ -42,22 +46,37 @@ class PrintController:
             self.root.textBox.delete("1.0", END) # Clear text box
             self.root.textBox.config(state="disabled")
             self.fileOpen = False
+            # Disable the buttons
+            self.root.startPrintButton.config(state="disabled")
+            self.root.stepPrintButton.config(state="disabled")
+            self.root.pausePrintButton.config(state="disabled")
+            self.root.cancelPrintButton.config(state="disabled")
             return
+        # Change selectedFileLabel to have filename
         self.root.selectedFileLabel.config(text=os.path.basename(self.selectedFilepath))
-        print(self.selectedFilepath)
         self.fileOpen = True
+        self.currentInstruction = 0 # Reset the currentInstruction counter
+        # Read all lines of the file into gcodeLines
         with open(self.selectedFilepath, "r") as file:
             self.gcodeLines = file.readlines()
-        self.root.textBox.config(state="normal")
+        # Change the text box text to be the lines of the file
+        self.root.textBox.config(state="normal") # Need to enable to modify
         self.root.textBox.delete("1.0", END) # Clear text box
         for i in range(0, len(self.gcodeLines) - 1):
             self.root.textBox.insert(END, self.gcodeLines[i])
-        self.root.textBox.config(state="disabled")
+        self.root.textBox.config(state="disabled") # Disable again to avoid user changes
+        # Enable the buttons
+        self.root.startPrintButton.config(state="normal")
+        self.root.stepPrintButton.config(state="normal")
+        self.root.pausePrintButton.config(state="normal")
+        self.root.cancelPrintButton.config(state="normal")
 
     def startPrint(self):
 
         if self.printPaused == True and self.printing == True:
             self.printPaused = False
+            return
+
         # When starting print, reset the "last*" parameters
         self.lastX = self.xBounds[0]
         self.lastY = self.yBounds[1]
@@ -66,12 +85,32 @@ class PrintController:
         self.lastE = 0.0
 
         self.printing = True
+        self.currentInstruction = 0
+
+    def stepPrint(self):
+        # Convert a line of gcode to teensy
+        if self.currentInstruction > len(self.gcodeLines) - 1:
+            print("End of program reached")
+            return
+        
+        lineToConvert = self.gcodeLines[self.currentInstruction] # Pull current line
+        self.currentInstruction += 1 # Increment currentInstruction
+        self.root.progressBar["value"] = (self.currentInstruction / len(self.gcodeLines)) * 100 # Update progress bar to match
+        print(f"Line: {lineToConvert}") # Print the line we're converting
+        point = self.gcodeToTeensy(lineToConvert) # Convert line to [X, Y, Z, Rx, Ry, Rz]
+        print(f"Point: {point}") # Print the returned point list
+        if point == "": # If the point is blank, don't try to send a command
+            return
+        # Send the command to the arm
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
 
     def pausePrint(self):
         self.printPaused = True
 
     def cancelPrint(self):
-        self.gcodeToTeensy() # Temp
+        pass
+        
+        
 
     # Converts a GCode instruction to the instruction to send over serial
     def gcodeToTeensy(self, lineToConvert):
@@ -135,8 +174,10 @@ class PrintController:
             # TODO: Note that it is pointless to convert to strings because to send the instruction to the arm (through current methods) we give the coordinates
             # TODO: Might make a custom datatype for storing position data that can be used
             newLine = f"MLX{x}Y{y}Z{z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.root.armController.speed}Ac{self.root.armController.acceleration}Dc{self.root.armController.deceleration}Rm{self.root.armController.ramp}Rnd0WFLm000000Q0\n"
-            return newLine
+            #return newLine
+            return [x, y, z, Rx, Ry, Rz]
 
     # This is the main function that will loop when printing a file
     def printLoop(self):
+
         pass

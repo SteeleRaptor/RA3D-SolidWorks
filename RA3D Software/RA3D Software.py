@@ -146,14 +146,16 @@ class TkWindow(Tk):
         self.selectedFileLabel = Label(self.printingFrame, text="Please select file")
         self.selectedFileLabel.grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky=W)
         # Start button
-        self.startPrintButton = Button(self.printingFrame, text="Start", width=10, command=self.printController.startPrint)
+        self.startPrintButton = Button(self.printingFrame, text="Start", width=10, command=self.printController.startPrint, state="disabled")
         self.startPrintButton.grid(row=3, column=1, padx=5, pady=5)
+        self.stepPrintButton = Button(self.printingFrame, text="Step", width=10, command=self.printController.stepPrint, state="disabled")
+        self.stepPrintButton.grid(row=3, column=2, padx=5, pady=5)
         # Pause button
-        self.pausePrintButton = Button(self.printingFrame, text="Pause", width=10, command=self.printController.pausePrint)
-        self.pausePrintButton.grid(row=3, column=2, padx=5, pady=5)
+        self.pausePrintButton = Button(self.printingFrame, text="Pause", width=10, command=self.printController.pausePrint, state="disabled")
+        self.pausePrintButton.grid(row=3, column=3, padx=5, pady=5)
         # Cancel button
-        self.cancelPrintButton = Button(self.printingFrame, text="Cancel", width=10, command=self.printController.cancelPrint)
-        self.cancelPrintButton.grid(row=3, column=3, padx=5, pady=5)
+        self.cancelPrintButton = Button(self.printingFrame, text="Cancel", width=10, command=self.printController.cancelPrint, state="disabled")
+        self.cancelPrintButton.grid(row=3, column=4, padx=5, pady=5)
         # Progress Label
         self.progressLabel = Label(self.printingFrame, text="Progress:")
         self.progressLabel.grid(row=4, column=1, padx=5, pady=5)

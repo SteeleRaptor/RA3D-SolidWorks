@@ -46,6 +46,7 @@ class ArmController:
         # Check if Stage 1 calibration was successful
         if (response[:1] == 'A'):
             print("Stage 1 Calibration Successful")
+            self.processPosition(response)
             stage1CalSuccess = True
         else:
             print("Stage 1 Calibration FAILED")
@@ -58,6 +59,7 @@ class ArmController:
 
             if (response[:1] == 'A'):
                 print("Stage 2 Calibration Successful")
+                self.processPosition(response)
                 stage2CalSuccess = True
             else:
                 print("Stage 2 Calibration FAILED")
