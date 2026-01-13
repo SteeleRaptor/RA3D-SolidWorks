@@ -152,20 +152,33 @@ class ArmController:
 
     def sendML(self, X, Y, Z, Rx, Ry, Rz):
         print("Sending ML command...")
-        if self.serialController.boardConnected is False:
-            print("Error: No board connected, cancelling ML command")
-            return
+        self.root.terminalPrint("Sending ML command...")
         # Taken from AR4.py, line XXXX
         # command = "ML"+"X"+RUN['xVal']+"Y"+RUN['yVal']+"Z"+RUN['zVal']+"Rz"+rzVal+"Ry"+ryVal+"Rx"+rxVal+"J7"+J7Val+"J8"+J8Val+"J9"+J9Val+speedPrefix+Speed+"Ac"+ACCspd+"Dc"+DECspd+"Rm"+ACCramp+"Rnd"+Rounding+"W"+RUN['WC']+"Lm"+LoopMode+"Q"+DisWrist+"\n"
         # Create the command
         command = f"MLX{X}Y{Y}Z{Z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}Rnd0WFLm000000Q0\n"
+        self.root.terminalPrint("Command to send:")
+        self.root.terminalPrint(command)
+        # Check if board is not connected or arm is not calibrated
+        if self.serialController.boardConnected is False:
+            # Inform user in terminal then quit function to avoid sending instruction
+            self.root.terminalPrint("Command not sent due to no board connected")
+            return
+        elif self.armCalibrated is False:
+            # Inform user in terminal then quit function to avoid sending instruction
+            self.root.terminalPrint("Command not sent due to arm not calibrated")
+            return
+        
         # Send the serial command
         response = self.serialController.sendSerial(command)
+
         # Check for any errors
         if (response[:1] == 'E'):
+            self.root.terminalPrint("Error executing ML command")
             print("Error executing ML command")
             # Sound the alarms on UI or something
         else:
+            self.root.terminalPrint("ML command executed successfully")
             print("No error executing ML command")
         self.processPosition(response)
 
