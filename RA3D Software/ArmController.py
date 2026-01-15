@@ -6,14 +6,27 @@ class ArmController:
         # Save references to the main window and the serial controller
         self.root = root
         self.serialController = serialController
+        # Arm calibration variables
+        self.armCalibrated = False # Flag to signify if the arm has been calibrated
+        self.calibrationInProgress = False # Flag to signify if calibration is currently in progress
+        # Contains current calibration step
+        #  0 - N/A
+        #  1 - Send CalStage1
+        #  2 - Wait for CalStage1 resposne & process when ready
+        #  3 - Send CalStage2
+        #  4 - Wait for CalStage2 response & process when ready
+        self.calibrationState = 0
+        # These variables structure when to calibrate each joint. 1 signifying that joint will be calibrated in that stage
+        self.calJStage1 = [1, 1, 1, 0, 0, 0] # J1, J2, & J3 calibration in Stage 1
+        self.calJStage2 = [0, 0, 0, 1, 1, 1] # J4, J5, & J6 calibration in Stage 2
 
-        self.armCalibrated = False
-
+        # Speed parameters used for movement commands
         self.speed = 25
         self.acceleration = 15
         self.deceleration = 15
         self.ramp = 80
 
+        # Stores current variable information
         self.curJ1 = None
         self.curJ2 = None
         self.curJ3 = None
@@ -26,88 +39,117 @@ class ArmController:
         self.curRx = None
         self.curRy = None
         self.curRz = None
-
+        # Stores calibration offset values
         self.J1CalOffset = 0
         self.J2CalOffset = 0
         self.J3CalOffset = 0
         self.J4CalOffset = 0
         self.J5CalOffset = 0
         self.J6CalOffset = 0
-        
 
-    def calibrateArm(self):
-        print("\n=====| Starting Full Calibration |=====\n")
-        self.root.terminalPrint("=====| Starting Full Calibration |=====")
-        # Taken from AR4.py, line 8308
-        # command = "LL"+"A"+str(CAL['J1CalStatVal'].get())+"B"+str(CAL['J2CalStatVal'].get())+"C"+str(CAL['J3CalStatVal'].get())+"D"+str(CAL['J4CalStatVal'].get())+"E"+str(CAL['J5CalStatVal'].get())+"F"+str(CAL['J6CalStatVal'].get())+"G"+str(CAL['J7CalStatVal'].get())+"H"+str(CAL['J8CalStatVal'].get())+"I"+str(CAL['J9CalStatVal'].get())+"J"+str(CAL['J1calOff'])+"K"+str(CAL['J2calOff'])+"L"+str(CAL['J3calOff'])+"M"+str(CAL['J4calOff'])+"N"+str(CAL['J5calOff'])+"O"+str(CAL['J6calOff'])+"P"+str(CAL['J7calOff'])+"Q"+str(CAL['J8calOff'])+"R"+str(CAL['J9calOff'])+"\n" 
-        calJStage1 = [1, 1, 1, 0, 0, 0]
-        calJStage2 = [0, 0, 0, 1, 1, 1]
-        stage1CalSuccess = False
-        stage2CalSuccess = False
+        # Other variables
+        self.awaitingMoveResponse = False # Flag for if the ArmController is awaiting a serial response after sending a move command
 
-        response = self.calibrateJoints(calJStage1[0], calJStage1[1], calJStage1[2], calJStage1[3], calJStage1[4], calJStage1[5])
+    def startArmCalibration(self):
+        # Check if calibration is already in progress and exit if so
+        if self.calibrationInProgress is True:
+            self.root.terminalPrint("Calibration already in progress")
+            return
+        self.root.terminalPrint("Beginning arm calibration")
+        # Set flag for calibration in progress
+        self.calibrationInProgress = True
+        # Move to next state of calibration
+        self.calibrationState = 1
+        # Call the calibration update function
+        self.calibrateArmUpdate()
 
-        # command = f"LLA{calJStage1[0]}B{calJStage1[1]}C{calJStage1[2]}D{calJStage1[3]}E{calJStage1[4]}F{calJStage1[5]}G0H0I0J0K0L0M0N0O0P0Q0\n"
-        # response = self.serialController.sendSerial(command)
+    def calibrateArmUpdate(self):
+        # Exit the function if calibration is not in progress and exit if so
+        if self.calibrationInProgress is False:
+            return
+        #print("calibrateArmUpdate called")
+        # Check current state and perform associated tasks
+        if self.calibrationState is 1: # Send CalStage1
+            self.calibrateJoints(calJ1=self.calJStage1[0],
+                                 calJ2=self.calJStage1[1],
+                                 calJ3=self.calJStage1[2],
+                                 calJ4=self.calJStage1[3],
+                                 calJ5=self.calJStage1[4],
+                                 calJ6=self.calJStage1[5])
+            self.calibrationState = 2
+        elif self.calibrationState is 2: # Await CalStage1 Response & process when ready
+            # Check if the serial controller has a response ready
+            if self.serialController.responseReady:
+                # Save the response
+                response = self.serialController.getLastResponse()
+                # Check if the calibration was successful
+                if (response[:1] == 'A'):
+                    # Inform user of Stage 1 success
+                    print("Stage 1 Calibration Successful")
+                    self.root.terminalPrint("Stage 1 Calibration Successful")
+                    # Process position response and dispaly
+                    self.processPosition(response)
+                    # Move to next state
+                    self.calibrationState = 3
+                else:
+                    # If not, inform user of Stage 1 Failure
+                    print("Stage 1 Calibration FAILED")
+                    self.root.terminalPrint("Stage 1 Calibration FAILED")
+                    # Exit calibration
+                    self.calibrationState = 0
+                    self.calibrationInProgress = False
+                    # Force arm calibration flag to False
+                    self.armCalibrated = False
+                # Print out the response received
+                self.root.terminalPrint(response)
+        elif self.calibrationState is 3: # Send CalStage2
+            self.calibrateJoints(calJ1=self.calJStage2[0],
+                                 calJ2=self.calJStage2[1],
+                                 calJ3=self.calJStage2[2],
+                                 calJ4=self.calJStage2[3],
+                                 calJ5=self.calJStage2[4],
+                                 calJ6=self.calJStage2[5])
+            self.calibrationState = 4
+        elif self.calibrationState is 4: # Await CalStage2 Response & process when ready
+            # Check if the serial controller has a response ready
+            if self.serialController.responseReady:
+                # Save the response
+                response = self.serialController.getLastResponse()
+                # Check if the calibration was successful
+                if (response[:1] == 'A'):
+                    # Inform user of Stage 1 success
+                    print("Stage 2 Calibration Successful")
+                    self.root.terminalPrint("Stage 2 Calibration Successful")
+                    # Process position response and dispaly
+                    self.processPosition(response)
 
-        # Check if Stage 1 calibration was successful
-        if (response[:1] == 'A'):
-            print("Stage 1 Calibration Successful")
-            self.root.terminalPrint("Stage 1 Calibration Successful")
-            self.processPosition(response)
-            stage1CalSuccess = True
-        else:
-            print("Stage 1 Calibration FAILED")
-            self.root.terminalPrint("Stage 1 Calibration FAILED")
-            # Turn on the warning lights on the UI or something
-        
-        # If Stage 1 calibration successful, start stage 2 calibration
-        if (stage1CalSuccess):
-            # command = f"LLA{calJStage2[0]}B{calJStage2[1]}C{calJStage2[2]}D{calJStage2[3]}E{calJStage2[4]}F{calJStage2[5]}G0H0I0J0K0L0M0N0O0P0Q0\n"
-            # response = self.serialController.sendSerial(command)
-            response = self.calibrateJoints(calJStage2[0], calJStage2[1], calJStage2[2], calJStage2[3], calJStage2[4], calJStage2[5])
+                    # Calibration complete
+                    self.calibrationState = 0
+                    # Calibration no longer in progress
+                    self.calibrationInProgress = False
+                    # Set arm calibration flag to True
+                    self.armCalibrated = True
+                else:
+                    # If not, inform user of Stage 2 Failure
+                    print("Stage 2 Calibration FAILED")
+                    self.root.terminalPrint("Stage 2 Calibration FAILED")
+                    # Exit calibration
+                    self.calibrationState = 0
+                    self.calibrationInProgress = False
+                    # Force arm calibration flag to False
+                    self.armCalibrated = False
+                # Print out the response received
+                self.root.terminalPrint(response)
 
-            if (response[:1] == 'A'):
-                print("Stage 2 Calibration Successful")
-                self.root.terminalPrint("Stage 2 Calibration Successful")
-                self.processPosition(response)
-                stage2CalSuccess = True
-            else:
-                print("Stage 2 Calibration FAILED")
-                self.root.terminalPrint("Stage 2 Calibration FAILED")
-                # Turn on the warning lights on the UI or something
-
-        if (not (stage1CalSuccess and stage2CalSuccess)):
-            print("Error during calibration")
-            self.root.terminalPrint("Error during calibration")
-            self.armCalibrated = False # Keep armCalibrated flag False
-            # Could force a port disconnect here as an extra measure of protecting the arm
-            return False
-        else:
-            print("Arm Calibrated Successfully")
-            self.root.terminalPrint("Arm Calibrated Successfully")
-            self.armCalibrated = True
-            return True
-        
     def calibrateJoints(self, calJ1=False, calJ2=False, calJ3=False, calJ4=False, calJ5=False, calJ6=False):
-
         command = f"LLA{calJ1}B{calJ2}C{calJ3}D{calJ4}E{calJ5}F{calJ6}G0H0I0J{self.J1CalOffset}K{self.J2CalOffset}L{self.J3CalOffset}M{self.J4CalOffset}N{self.J5CalOffset}O{self.J6CalOffset}P0Q0\n"
         self.root.terminalPrint("Command to send: ")
         self.root.terminalPrint(command[0:-2])
         if self.serialController.boardConnected is False:
             self.root.terminalPrint("Command not sent due to no board connected")
             return "E"
-        response = self.serialController.sendSerial(command)
-        self.root.terminalPrint("Response received: ")
-        self.root.terminalPrint(response)
-
-        # Check if calibration was a success
-        if (response[:1] == 'A'):
-            print("Joint(s) Calibrated Successfully")
-        else:
-            print("Joint(s) Calibration FAILED")
-            # Turn on the warning lights on the UI or something
-        return response
+        # Tell the serial controller to send the serial
+        self.serialController.sendSerial(command)
 
     def processPosition(self, response):
         # Collect all the indexes for finding values
@@ -158,7 +200,72 @@ class ArmController:
         self.root.RyCurCoord.config(text=self.curRy)
         self.root.RzCurCoord.config(text=self.curRz)
 
+    def moveUpdate(self):
+        
+        if self.awaitingMoveResponse is False:
+            return
+        
+        #print("moveUpdate")
+        if self.serialController.responseReady:
+            response = self.serialController.getLastResponse()
+            self.root.terminalPrint(response)
+            if (response[:1] == 'E'):
+                self.root.terminalPrint("Error executing ML command")
+                print("Error executing ML command")
+                # Sound the alarms on UI or something
+            else:
+                self.root.terminalPrint("ML command executed successfully")
+                print("No error executing ML command")
+                self.processPosition(response)
+            self.awaitingMoveResponse = False
+
+    def prepMLCommand(self):
+        # Read the values from each entry box
+        x  = self.root.xCoordEntry.get()
+        y  = self.root.yCoordEntry.get()
+        z  = self.root.zCoordEntry.get()
+        Rx = self.root.RxCoordEntry.get()
+        Ry = self.root.RyCoordEntry.get()
+        Rz = self.root.RzCoordEntry.get()
+        # Check if any values are blank
+        allValuesNumeric = True
+        if not x.isnumeric():
+            print("X is not a number")
+            self.root.terminalPrint("X is not a number")
+            allValuesNumeric = False
+        if not y.isnumeric():
+            print("Y is not a number")
+            self.root.terminalPrint("Y is not a number")
+            allValuesNumeric = False
+        if not z.isnumeric():
+            print("Z is not a number")
+            self.root.terminalPrint("Z is not a number")
+            allValuesNumeric = False
+        if not Rx.isnumeric():
+            print("Rx is not a number")
+            self.root.terminalPrint("Rx is not a number")
+            allValuesNumeric = False
+        if not Ry.isnumeric():
+            print("Ry is not a number")
+            self.root.terminalPrint("Ry is not a number")
+            allValuesNumeric = False
+        if not Rz.isnumeric():
+            print("Rz is not a number")
+            self.root.terminalPrint("Rz is not a number")
+            allValuesNumeric = False
+        
+        if allValuesNumeric:
+            print("All values numeric, sending ML command")
+            self.root.terminalPrint("All values numeric, sending ML command")
+            self.sendML(x, y, z, Rx, Ry, Rz)
+        else:
+            self.root.terminalPrint("ML command not sent due to a value not being a number")
+            print("ML command not sent due to a value not being a number")
+
     def sendML(self, X, Y, Z, Rx, Ry, Rz):
+        if self.awaitingMoveResponse:
+            self.root.terminalPrint("Cannot send ML command as currently awaiting response from a previous move command")
+            return
         print("Sending ML command...")
         self.root.terminalPrint("Sending ML command...")
         # Taken from AR4.py, line XXXX
@@ -178,19 +285,7 @@ class ArmController:
             return
         
         # Send the serial command
-        response = self.serialController.sendSerial(command)
-        self.root.terminalPrint("Response received: ")
-        self.root.terminalPrint(response)
-
-        # Check for any errors
-        if (response[:1] == 'E'):
-            self.root.terminalPrint("Error executing ML command")
-            print("Error executing ML command")
-            # Sound the alarms on UI or something
-        else:
-            self.root.terminalPrint("ML command executed successfully")
-            print("No error executing ML command")
-        self.processPosition(response)
+        self.serialController.sendSerial(command)
 
     def sendRJ(self, J1, J2, J3, J4, J5, J6):
         print("Sending RJ command...")
@@ -208,6 +303,7 @@ class ArmController:
         else:
             print("No error executing MJ command")
         self.processPosition(response)
+
 
     def getCalOffsets(self):
         # Grab values from the entry fields, convert to integers, and save

@@ -1,7 +1,5 @@
 from tkinter import *
 import tkinter.ttk as ttk
-import serial
-import serial.tools.list_ports
 from datetime import datetime
 
 from SerialController import SerialController
@@ -14,7 +12,9 @@ class TkWindow(Tk):
         self.root = self
         # Set the window title
         self.title("RA3D Control Software")
+        # (TEMP) Set window as topmost
         self.attributes('-topmost', True)
+        self.updateDelay = 500 # Delay between update function calls in milliseconds
         # Set the window dimensions and position on screen
         w = 675 # Window width
         h = 725 # Window height
@@ -32,7 +32,9 @@ class TkWindow(Tk):
         # Create and draw widgets onto the window
         self.createWidgets()
         self.root.terminalPrint("GUI created")
-        self.refreshCOMPorts()
+        self.serialController.refreshCOMPorts()
+        # Set up a call to the update function after updateDelay milliseconds
+        self.after(self.updateDelay, self.update)
 
     def createWidgets(self):
         # ==========| Serial Frame |==========
@@ -42,7 +44,7 @@ class TkWindow(Tk):
         self.serialLabel = Label(self.serialFrame, text="Serial Frame")
         self.serialLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
         # Refresh button
-        self.refreshCOMButton = Button(self.serialFrame, text="⟳", command=self.refreshCOMPorts, width=2)
+        self.refreshCOMButton = Button(self.serialFrame, text="⟳", command=self.serialController.refreshCOMPorts, width=2)
         self.refreshCOMButton.grid(row=1, column=0, padx=5, pady=5)
         # Create dropdown list of all serial COM ports
         self.portList = [] # Start with blank list
@@ -53,7 +55,7 @@ class TkWindow(Tk):
         self.portDropdown.grid(row=1, column=1, padx=5, pady=5)
         
         # Create button for connecting to port
-        self.connectButton = Button(self.serialFrame, text="Connect", command=self.serialConnect, width=10, state="disabled")
+        self.connectButton = Button(self.serialFrame, text="Connect", command=self.serialController.serialConnect, width=10, state="disabled")
         self.connectButton.grid(row=1, column=2, padx=5, pady=5)
         # Status label
         self.portStatusLabel = Label(self.serialFrame, text="Status: Disconnected")
@@ -67,7 +69,7 @@ class TkWindow(Tk):
         self.controlLabel = Label(self.controlFrame, text="Control Frame")
         self.controlLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
         # Create calibration button
-        self.calibrateButton = Button(self.controlFrame, text="Calibrate", command=self.armController.calibrateArm, width=10)
+        self.calibrateButton = Button(self.controlFrame, text="Calibrate", command=self.armController.startArmCalibration, width=10)
         self.calibrateButton.grid(row=1, column=0, padx=5, pady=5, sticky=W)
         self.extraCalibrateButton = Button(self.controlFrame, text="Extra Calibrates", command=self.extraCalibrate, width=11)
         self.extraCalibrateButton.grid(row=1, column=1, padx=5, pady=5, sticky=W)
@@ -117,7 +119,7 @@ class TkWindow(Tk):
         self.moveLabel = Label(self.moveFrame, text="Move:")
         self.moveLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
         # Send command button
-        self.sendCommandButton = Button(self.moveFrame, text="Send Command", command=self.sendMoveCommand)
+        self.sendCommandButton = Button(self.moveFrame, text="Send Command", command=self.armController.prepMLCommand)
         self.sendCommandButton.grid(row=0, column=3, columnspan=3, padx=5, pady=5)
 
         # Coordinate labels and text boxes
@@ -181,7 +183,6 @@ class TkWindow(Tk):
         self.RzCurCoordLabel.grid(row=2, column=4, padx=5, pady=5)
         self.RzCurCoord.grid(row=2, column=5, padx=5, pady=5)
 
-
         # ==========| Printing Frame |==========
         self.printingFrame = Frame(self.root, bg="#0000FF", highlightthickness=2, highlightbackground="#000000")
         self.printingFrame.grid(row=0, rowspan=2, column=1, padx=5, pady=5, sticky=W+N+E+S)
@@ -216,8 +217,6 @@ class TkWindow(Tk):
         self.textScroll = Scrollbar(self.printingFrame, orient="vertical")
         self.textBox = Text(self.printingFrame,
                             wrap=NONE,
-                            undo=True,
-                            tabs=20,
                             width=50,
                             height=20,
                             yscrollcommand=self.textScroll.set,
@@ -230,9 +229,6 @@ class TkWindow(Tk):
         # ==========| Terminal Panel |==========
         self.termFrame = Frame(self.root, bg="#00FFFF", highlightthickness=2, highlightbackground="#000000")
         self.termFrame.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=W+E+N+S)
-        #self.termLabel = Label(self.termFrame, text="Debug Terminal")
-        #self.termLabel.grid(row=0, column=0, sticky=W)
-        #self.termLabel.pack()
 
         self.termVertScroll = Scrollbar(self.termFrame, orient="vertical")
         self.termHorzScroll = Scrollbar(self.termFrame, orient="horizontal")
@@ -255,27 +251,23 @@ class TkWindow(Tk):
         #self.terminal.grid(row=1, column=0, columnspan=5, padx=5, pady=5)
         self.terminal.pack(fill=BOTH)
 
-    def refreshCOMPorts(self):
-        self.portList = self.getCOMPorts() # Create options list from found COM ports
-        self.portSelection.set("Select Port") # Create a StringVar to hold the current dropdown selection
-        self.portDropdown["values"] = self.portList
-        self.portDropdown["textvariable"] = self.portSelection
+    def update(self):
+        #print("\nUpdate function called:")
 
-    # Returns a list of all COM ports with a device connected
-    def getCOMPorts(self):
-        ports = list(serial.tools.list_ports.comports())
-        returnList = []
-        if not ports:
-            self.terminalPrint("No serial ports w/ connected devices found")
-            print("No serial ports w/ connected devices found")
-        else:
-            self.terminalPrint(f"Found {len(ports)} connected device(s):")
-            print(f"Found {len(ports)} connected device(s):\n")
-            for port in ports:
-                self.terminalPrint(f"Name: {port.device}\nDescription: {port.description}\nID: {port.hwid}\n\n")
-                print(f"Name: {port.device}\nDescription: {port.description}\nID: {port.hwid}\n\n")
-                returnList.append(port.device)
-        return returnList
+        # ==========| SerialController |==========
+
+        # ===========| ArmController |============
+        # If arm calibration is in progress, call the calibration update function
+        if self.armController.calibrationInProgress:
+            self.armController.calibrateArmUpdate()
+        if self.armController.awaitingMoveResponse:
+            self.armController.moveUpdate()
+
+        # ==========| PrintController |==========
+
+
+        # Set up another call to the update function after updateDelay milliseconds
+        self.after(self.updateDelay, self.update)
 
     # Called whenever the selection in the port dropdown is changed
     def portSelectionChanged(self, *args):
@@ -287,70 +279,6 @@ class TkWindow(Tk):
         else:
             # If not, enable the connect button
             self.connectButton.config(state="normal")
-
-    # Handles the "Connect/Disconnect" button being pressed to connect or disconnect the port
-    def serialConnect(self):
-        self.terminalPrint("serialConnect()")
-        # Check if the serial controller is already connected to a board
-        if self.serialController.boardConnected == False:
-            # If not, connect to the port currently selected in the port dropdown
-            self.terminalPrint("Attempting port connection")
-            self.serialController.connectPort(self.portSelection.get())
-            self.terminalPrint(f"Connection Status: {self.serialController.boardConnected}")
-            print(f"Connection Status: {self.serialController.boardConnected}")
-            # Perform a check to see if board was actually connected to
-            if self.serialController.boardConnected:
-                self.connectButton.config(text="Disconnect") # Change button text
-                self.portDropdown.config(state="disabled") # Disable port dropdown
-                self.refreshCOMButton.config(state="disabled") # Disable refresh button
-                self.portStatusLabel.config(text="Status: Connected") # Change port status text
-        else:
-            # If so, disconnect from the port
-            self.terminalPrint("Disconnecting from port")
-            self.serialController.disconnectPort()
-            print(f"Connection Status: {self.serialController.boardConnected}")
-            self.terminalPrint(f"Connection Status: {self.serialController.boardConnected}")
-            self.connectButton.config(text="Connect") # Change button text
-            self.portDropdown.config(state="readonly") # Enable port dropdown
-            self.refreshCOMButton.config(state="normal") # Enable refresh button
-            self.portStatusLabel.config(text="Status: Disconnected") # Change port status text
-
-    def sendMoveCommand(self):
-        # Read the values from each entry box
-        x = self.xCoordEntry.get()
-        y = self.yCoordEntry.get()
-        z = self.zCoordEntry.get()
-        Rx = self.RxCoordEntry.get()
-        Ry = self.RyCoordEntry.get()
-        Rz = self.RzCoordEntry.get()
-        # Check if any values are blank
-        allValuesNumeric = True
-        if not x.isnumeric():
-            print("X is not a number")
-            allValuesNumeric = False
-        if not y.isnumeric():
-            print("Y is not a number")
-            allValuesNumeric = False
-        if not z.isnumeric():
-            print("Z is not a number")
-            allValuesNumeric = False
-        if not Rx.isnumeric():
-            print("Rx is not a number")
-            allValuesNumeric = False
-        if not Ry.isnumeric():
-            print("Ry is not a number")
-            allValuesNumeric = False
-        if not Rz.isnumeric():
-            print("Rz is not a number")
-            allValuesNumeric = False
-        
-        if allValuesNumeric:
-            print("All values numeric, sending ML command")
-            self.terminalPrint("All values numeric, sending ML command")
-            self.armController.sendML(x, y, z, Rx, Ry, Rz)
-        else:
-            self.root.terminalPrint("ML command not sent due to a value not being a number")
-            print("ML command not sent due to a value not being a number")
         
     def extraCalibrate(self):
         print("extraCalibrate")
@@ -373,10 +301,12 @@ class TkWindow(Tk):
         self.calJ5Button.grid(row=2, column=0, padx=5, pady=5)
         self.calJ6Button.grid(row=2, column=1, padx=5, pady=5)
 
+    # Used to print to the in window terminal
     def terminalPrint(self, message):
         self.terminal.config(state="normal") # Need to enable to modify
         self.terminal.insert(END, f"{datetime.now().now()}| {message}\n") # Print the message with the current time fixated at the front
         self.terminal.config(state="disabled") # Disable again to avoid user changes
+        self.terminal.see("end") # Forces terminal to autoscroll with new text. Probably want to make this a toggle option
 
 if __name__ == "__main__":
     app = TkWindow()
