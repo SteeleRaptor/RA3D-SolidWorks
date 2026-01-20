@@ -110,7 +110,7 @@ class TkWindow(Tk):
         self.progressLabel.grid(row=0, column=0, padx=5, pady=5, sticky=W)
         # Progress bar
         self.progressBar = ttk.Progressbar(self.printMonitorFrame, orient=HORIZONTAL, length=400, mode="determinate")
-        self.progressBar.grid(row=1, column=0, columnspan=3, padx=5, pady=5)
+        self.progressBar.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
         self.progressBar['value'] = 100
 
         self.textScroll = Scrollbar(self.printMonitorFrame, orient="vertical")
@@ -122,7 +122,7 @@ class TkWindow(Tk):
                             state="disabled"
                             )
         self.textScroll.config(command=self.textBox.yview)
-        self.textBox.grid(row=2, column=0, columnspan=5, padx=(5,0), pady=5)
+        self.textBox.grid(row=2, column=0, columnspan=1, padx=(5,0), pady=5)
         self.textScroll.grid(row=2, column=1, padx=(0, 5), pady=5, sticky=N+S)
 
     def fillArmTab(self):
