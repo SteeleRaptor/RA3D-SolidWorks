@@ -1,6 +1,11 @@
-//VERSION 6.4
+// =============================================================================================
+// FIRMWARE VERSION 6.4
+// =============================================================================================
+// AR4 Robot Control Software - Teensy 4.1 Motor & Kinematics Controller
+// =============================================================================================
 
-/*  AR4 Robot Control Software
+/*  
+    AR4 Robot Control Software
     Copyright (c) 2024, Chris Annin
     All rights reserved.
 
@@ -36,11 +41,11 @@
     SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     chris.annin@gmail.com
-
 */
 
-
+// =============================================================================================
 // VERSION LOG
+// =============================================================================================
 // 1.0 - 2/6/21 - initial release
 // 1.1 - 2/20/21 - bug fix, calibration offset on negative axis calibration direction axis 2,4,5
 // 2.0 - 10/1/22 - added lookahead and spline functionality
@@ -65,22 +70,31 @@
 // 6.3 - 10/8/25 - JK - added beta Linux support
 // 6.4 - 10/29/25 - added set robot command to store HW and version to eprom, MK4 update, fixed tool jog, re-added 2 step calibration, add servo amp test
 
+// Current firmware version
 const char *FIRMWARE_VERSION = "6.4";
 
-//////////////////////////////////////////////////////////////////////////////
-//DEBUGGING
-//////////////////////////////////////////////////////////////////////////////
-// Define function aliases for debugging but only if debugging is enabled
 
+// =============================================================================================
+// SYSTEM INCLUDES & LIBRARIES
+// =============================================================================================
+// Mathematical operations and advanced features
 #include <math.h>
 #include <limits>
 #include <avr/pgmspace.h>
+
+// Hardware I/O and communication
 #include <Encoder.h>
 #include <SPI.h>
 #include <SD.h>
+
+// Error handling and Modbus protocol
 #include <stdexcept>
 #include <ModbusMaster.h>
 #include <EEPROM.h>
+
+// =============================================================================================
+// COMPILER PRAGMAS - Suppress non-critical warnings
+// =============================================================================================
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wsequence-point"
@@ -91,8 +105,13 @@ const char *FIRMWARE_VERSION = "6.4";
 #pragma GCC diagnostic ignored "-Waddress"
 #pragma GCC diagnostic ignored "-Wall"
 
+// =============================================================================================
+// DEBUG CONFIGURATION
+// =============================================================================================
+// Enable/disable debug output
 bool DEBUG = false;
-// These Debug printers do nothing unless DEBUG = true
+
+// Conditional debug print macros - only print if DEBUG is true
 #define DEBUG_PRINT(x) \
   do { \
     if (DEBUG) Serial.print(x); \
@@ -102,304 +121,417 @@ bool DEBUG = false;
     if (DEBUG) Serial.println(x); \
   } while (0)
 
+// =============================================================================================
+// TYPE DEFINITIONS
+// =============================================================================================
 #define Table_Size 6
 typedef float Matrix4x4[16];
 typedef float tRobot[66];
 
+// =============================================================================================
+// SERIAL COMMUNICATION BUFFERS
+// =============================================================================================
+// Command buffers for lookahead/spline functionality
 String cmdBuffer1;
 String cmdBuffer2;
 String cmdBuffer3;
-String inData;
-String recData;
-String checkData;
-String function;
-volatile byte state = LOW;
-
-const int J1stepPin = 0;
-const int J1dirPin = 1;
-const int J2stepPin = 2;
-const int J2dirPin = 3;
-const int J3stepPin = 4;
-const int J3dirPin = 5;
-const int J4stepPin = 6;
-const int J4dirPin = 7;
-const int J5stepPin = 8;
-const int J5dirPin = 9;
-const int J6stepPin = 10;
-const int J6dirPin = 11;
-const int J7stepPin = 12;
-const int J7dirPin = 13;
-const int J8stepPin = 32;
-const int J8dirPin = 33;
-const int J9stepPin = 40;
-const int J9dirPin = 41;
-
-const int J1calPin = 26;
-const int J2calPin = 27;
-const int J3calPin = 28;
-const int J4calPin = 29;
-const int J5calPin = 30;
-const int J6calPin = 31;
-const int J7calPin = 36;
-const int J8calPin = 37;
-const int J9calPin = 38;
-
-const int EstopPin = 39;
+String inData;     // Current input data
+String recData;    // Received data accumulator
+String checkData;  // Data validation
+String function;   // Command function identifier
+volatile byte state = LOW;  // ISR state flag
 
 
-//set encoder multiplier
-float J1encMult = 10;
-float J2encMult = 10;
-float J3encMult = 10;
-float J4encMult = 10;
-float J5encMult = 5;
-float J6encMult = 10;
-int encOffset = 50;
+// =============================================================================================
+// TEENSY PIN DEFINITIONS - Motor Control (Step/Direction Pins)
+// =============================================================================================
+// J1-J6: Main robot joint motors, J7-J9: External/optional axis motors
+const int J1stepPin = 0;   // Joint 1 step pulse pin
+const int J1dirPin = 1;    // Joint 1 direction control pin
+const int J2stepPin = 2;   // Joint 2 step pulse pin
+const int J2dirPin = 3;    // Joint 2 direction control pin
+const int J3stepPin = 4;   // Joint 3 step pulse pin
+const int J3dirPin = 5;    // Joint 3 direction control pin
+const int J4stepPin = 6;   // Joint 4 step pulse pin
+const int J4dirPin = 7;    // Joint 4 direction control pin
+const int J5stepPin = 8;   // Joint 5 step pulse pin
+const int J5dirPin = 9;    // Joint 5 direction control pin
+const int J6stepPin = 10;  // Joint 6 step pulse pin
+const int J6dirPin = 11;   // Joint 6 direction control pin
+const int J7stepPin = 12;  // Joint 7 (external axis) step pin
+const int J7dirPin = 13;   // Joint 7 (external axis) direction pin
+const int J8stepPin = 32;  // Joint 8 (external axis) step pin
+const int J8dirPin = 33;   // Joint 8 (external axis) direction pin
+const int J9stepPin = 40;  // Joint 9 (external axis) step pin
+const int J9dirPin = 41;   // Joint 9 (external axis) direction pin
 
-//set encoder pins
-Encoder J1encPos(14, 15);
-Encoder J2encPos(17, 16);
-Encoder J3encPos(19, 18);
-Encoder J4encPos(20, 21);
-Encoder J5encPos(23, 22);
-Encoder J6encPos(24, 25);
+// =============================================================================================
+// TEENSY PIN DEFINITIONS - Calibration/Limit Switches
+// =============================================================================================
+// Home limit switches for each joint - used during calibration
+const int J1calPin = 26;  // Joint 1 home/limit switch
+const int J2calPin = 27;  // Joint 2 home/limit switch
+const int J3calPin = 28;  // Joint 3 home/limit switch
+const int J4calPin = 29;  // Joint 4 home/limit switch
+const int J5calPin = 30;  // Joint 5 home/limit switch
+const int J6calPin = 31;  // Joint 6 home/limit switch
+const int J7calPin = 36;  // Joint 7 home/limit switch
+const int J8calPin = 37;  // Joint 8 home/limit switch
+const int J9calPin = 38;  // Joint 9 home/limit switch
 
+// Emergency stop button pin
+const int EstopPin = 39;  // Emergency stop input (active low)
+
+
+
+// =============================================================================================
+// ENCODER CONFIGURATION
+// =============================================================================================
+// Encoder multiplier factors for position feedback scaling
+float J1encMult = 10;  // Joint 1 encoder multiplier
+float J2encMult = 10;  // Joint 2 encoder multiplier
+float J3encMult = 10;  // Joint 3 encoder multiplier
+float J4encMult = 10;  // Joint 4 encoder multiplier
+float J5encMult = 5;   // Joint 5 encoder multiplier
+float J6encMult = 10;  // Joint 6 encoder multiplier
+int encOffset = 50;    // Encoder collision detection threshold (steps)
+
+// Encoder instances - (pinA, pinB) for each joint
+Encoder J1encPos(14, 15);  // Joint 1 encoder (pins 14, 15)
+Encoder J2encPos(17, 16);  // Joint 2 encoder (pins 17, 16)
+Encoder J3encPos(19, 18);  // Joint 3 encoder (pins 19, 18)
+Encoder J4encPos(20, 21);  // Joint 4 encoder (pins 20, 21)
+Encoder J5encPos(23, 22);  // Joint 5 encoder (pins 23, 22)
+Encoder J6encPos(24, 25);  // Joint 6 encoder (pins 24, 25)
+
+// Modbus communication master node for industrial device control
 ModbusMaster node;
 
 
-// GLOBAL VARS //
 
-//define axis limits in degrees
-float J1axisLimPos = 160;
-float J1axisLimNeg = 160;
-float J2axisLimPos = 90;
-float J2axisLimNeg = 42;
-float J3axisLimPos = 52;
-float J3axisLimNeg = 89;
-float J4axisLimPos = 180;
-float J4axisLimNeg = 180;
-float J5axisLimPos = 105;
-float J5axisLimNeg = 105;
-float J6axisLimPos = 180;
-float J6axisLimNeg = 180;
-float J7axisLimPos = 3450;
-float J7axisLimNeg = 0;
-float J8axisLimPos = 3450;
-float J8axisLimNeg = 0;
-float J9axisLimPos = 3450;
-float J9axisLimNeg = 0;
+// =============================================================================================
+// GLOBAL VARIABLES - AXIS LIMITS (Degrees)
+// =============================================================================================
+// Define maximum positive and negative angular limits for each joint
+float J1axisLimPos = 160;  // Joint 1 positive limit (degrees)
+float J1axisLimNeg = 160;  // Joint 1 negative limit (degrees)
+float J2axisLimPos = 90;   // Joint 2 positive limit (degrees)
+float J2axisLimNeg = 42;   // Joint 2 negative limit (degrees)
+float J3axisLimPos = 52;   // Joint 3 positive limit (degrees)
+float J3axisLimNeg = 89;   // Joint 3 negative limit (degrees)
+float J4axisLimPos = 180;  // Joint 4 positive limit (degrees)
+float J4axisLimNeg = 180;  // Joint 4 negative limit (degrees)
+float J5axisLimPos = 105;  // Joint 5 positive limit (degrees)
+float J5axisLimNeg = 105;  // Joint 5 negative limit (degrees)
+float J6axisLimPos = 180;  // Joint 6 positive limit (degrees)
+float J6axisLimNeg = 180;  // Joint 6 negative limit (degrees)
+float J7axisLimPos = 3450; // Joint 7 (linear) positive limit (mm)
+float J7axisLimNeg = 0;    // Joint 7 (linear) negative limit (mm)
+float J8axisLimPos = 3450; // Joint 8 (linear) positive limit (mm)
+float J8axisLimNeg = 0;    // Joint 8 (linear) negative limit (mm)
+float J9axisLimPos = 3450; // Joint 9 (linear) positive limit (mm)
+float J9axisLimNeg = 0;    // Joint 9 (linear) negative limit (mm)
 
-int J1MotDir = 0;
-int J2MotDir = 1;
-int J3MotDir = 1;
-int J4MotDir = 1;
-int J5MotDir = 1;
-int J6MotDir = 1;
-int J7MotDir = 1;
-int J8MotDir = 1;
-int J9MotDir = 1;
+// =============================================================================================
+// GLOBAL VARIABLES - MOTOR DIRECTIONS
+// =============================================================================================
+// Motor direction flags: 0=normal, 1=reversed
+int J1MotDir = 0;  // Joint 1 motor direction
+int J2MotDir = 1;  // Joint 2 motor direction
+int J3MotDir = 1;  // Joint 3 motor direction
+int J4MotDir = 1;  // Joint 4 motor direction
+int J5MotDir = 1;  // Joint 5 motor direction
+int J6MotDir = 1;  // Joint 6 motor direction
+int J7MotDir = 1;  // Joint 7 motor direction
+int J8MotDir = 1;  // Joint 8 motor direction
+int J9MotDir = 1;  // Joint 9 motor direction
 
-int J1CalDir = 1;
-int J2CalDir = 0;
-int J3CalDir = 1;
-int J4CalDir = 0;
-int J5CalDir = 0;
-int J6CalDir = 1;
-int J7CalDir = 0;
-int J8CalDir = 0;
-int J9CalDir = 0;
-
-//define total axis travel
-float J1axisLim = J1axisLimPos + J1axisLimNeg;
-float J2axisLim = J2axisLimPos + J2axisLimNeg;
-float J3axisLim = J3axisLimPos + J3axisLimNeg;
-float J4axisLim = J4axisLimPos + J4axisLimNeg;
-float J5axisLim = J5axisLimPos + J5axisLimNeg;
-float J6axisLim = J6axisLimPos + J6axisLimNeg;
-float J7axisLim = J7axisLimPos + J7axisLimNeg;
-float J8axisLim = J8axisLimPos + J8axisLimNeg;
-float J9axisLim = J9axisLimPos + J9axisLimNeg;
-
-//motor steps per degree
-float J1StepDeg = 88.888;
-float J2StepDeg = 111.111;
-float J3StepDeg = 111.111;
-float J4StepDeg = 99.555;
-float J5StepDeg = 43.720;
-float J6StepDeg = 44.444;
-float J7StepDeg = 14.2857;
-float J8StepDeg = 14.2857;
-float J9StepDeg = 14.2857;
-
-//steps full movement of each axis
-int J1StepLim = J1axisLim * J1StepDeg;
-int J2StepLim = J2axisLim * J2StepDeg;
-int J3StepLim = J3axisLim * J3StepDeg;
-int J4StepLim = J4axisLim * J4StepDeg;
-int J5StepLim = J5axisLim * J5StepDeg;
-int J6StepLim = J6axisLim * J6StepDeg;
-int J7StepLim = J7axisLim * J7StepDeg;
-int J8StepLim = J8axisLim * J8StepDeg;
-int J9StepLim = J9axisLim * J9StepDeg;
-
-//step at axis zero
-int J1zeroStep = J1axisLimNeg * J1StepDeg;
-int J2zeroStep = J2axisLimNeg * J2StepDeg;
-int J3zeroStep = J3axisLimNeg * J3StepDeg;
-int J4zeroStep = J4axisLimNeg * J4StepDeg;
-int J5zeroStep = J5axisLimNeg * J5StepDeg;
-int J6zeroStep = J6axisLimNeg * J6StepDeg;
-int J7zeroStep = J7axisLimNeg * J7StepDeg;
-int J8zeroStep = J8axisLimNeg * J8StepDeg;
-int J9zeroStep = J9axisLimNeg * J9StepDeg;
-
-//start master step count at Jzerostep
-int J1StepM = J1zeroStep;
-int J2StepM = J2zeroStep;
-int J3StepM = J3zeroStep;
-int J4StepM = J4zeroStep;
-int J5StepM = J5zeroStep;
-int J6StepM = J6zeroStep;
-int J7StepM = J7zeroStep;
-int J8StepM = J8zeroStep;
-int J9StepM = J9zeroStep;
+// Calibration (homing) direction flags: 0=negative, 1=positive limit first
+int J1CalDir = 1;  // Joint 1 calibration direction
+int J2CalDir = 0;  // Joint 2 calibration direction
+int J3CalDir = 1;  // Joint 3 calibration direction
+int J4CalDir = 0;  // Joint 4 calibration direction
+int J5CalDir = 0;  // Joint 5 calibration direction
+int J6CalDir = 1;  // Joint 6 calibration direction
+int J7CalDir = 0;  // Joint 7 calibration direction
+int J8CalDir = 0;  // Joint 8 calibration direction
+int J9CalDir = 0;  // Joint 9 calibration direction
 
 
+// =============================================================================================
+// GLOBAL VARIABLES - AXIS TRAVEL & STEPPER MOTOR CONFIGURATION
+// =============================================================================================
+// Calculate total axis travel range (positive + negative limits)
+float J1axisLim = J1axisLimPos + J1axisLimNeg;  // Total J1 travel
+float J2axisLim = J2axisLimPos + J2axisLimNeg;  // Total J2 travel
+float J3axisLim = J3axisLimPos + J3axisLimNeg;  // Total J3 travel
+float J4axisLim = J4axisLimPos + J4axisLimNeg;  // Total J4 travel
+float J5axisLim = J5axisLimPos + J5axisLimNeg;  // Total J5 travel
+float J6axisLim = J6axisLimPos + J6axisLimNeg;  // Total J6 travel
+float J7axisLim = J7axisLimPos + J7axisLimNeg;  // Total J7 travel
+float J8axisLim = J8axisLimPos + J8axisLimNeg;  // Total J8 travel
+float J9axisLim = J9axisLimPos + J9axisLimNeg;  // Total J9 travel
 
-//degrees from limit switch to offset calibration
-float J1calBaseOff = -6.2;
-float J2calBaseOff = 3.8;
-float J3calBaseOff = 1.4;
-float J4calBaseOff = -.8;
-float J5calBaseOff = 3.1;
-float J6calBaseOff = .5;
-float J7calBaseOff = 0;
-float J8calBaseOff = 0;
-float J9calBaseOff = 0;
+// =============================================================================================
+// MOTOR STEPS PER DEGREE (or mm)
+// =============================================================================================
+// Stepper motor resolution: steps required to move 1 degree (or 1mm for linear axes)
+float J1StepDeg = 88.888;    // Steps per degree for J1
+float J2StepDeg = 111.111;   // Steps per degree for J2
+float J3StepDeg = 111.111;   // Steps per degree for J3
+float J4StepDeg = 99.555;    // Steps per degree for J4
+float J5StepDeg = 43.720;    // Steps per degree for J5
+float J6StepDeg = 44.444;    // Steps per degree for J6
+float J7StepDeg = 14.2857;   // Steps per mm for J7 (linear axis)
+float J8StepDeg = 14.2857;   // Steps per mm for J8 (linear axis)
+float J9StepDeg = 14.2857;   // Steps per mm for J9 (linear axis)
 
-//reset collision indicators
-int J1collisionTrue = 0;
-int J2collisionTrue = 0;
-int J3collisionTrue = 0;
-int J4collisionTrue = 0;
-int J5collisionTrue = 0;
-int J6collisionTrue = 0;
-int TotalCollision = 0;
-int KinematicError = 0;
+// =============================================================================================
+// TOTAL STEP LIMITS FOR EACH AXIS
+// =============================================================================================
+// Maximum step count for full range of motion
+int J1StepLim = J1axisLim * J1StepDeg;  // Total steps for J1 full range
+int J2StepLim = J2axisLim * J2StepDeg;  // Total steps for J2 full range
+int J3StepLim = J3axisLim * J3StepDeg;  // Total steps for J3 full range
+int J4StepLim = J4axisLim * J4StepDeg;  // Total steps for J4 full range
+int J5StepLim = J5axisLim * J5StepDeg;  // Total steps for J5 full range
+int J6StepLim = J6axisLim * J6StepDeg;  // Total steps for J6 full range
+int J7StepLim = J7axisLim * J7StepDeg;  // Total steps for J7 full range
+int J8StepLim = J8axisLim * J8StepDeg;  // Total steps for J8 full range
+int J9StepLim = J9axisLim * J9StepDeg;  // Total steps for J9 full range
 
-float J7length;
-float J7rot;
-float J7steps;
+// =============================================================================================
+// STEP COUNT AT ZERO POSITION
+// =============================================================================================
+// Step count when joint is at zero (center) position
+int J1zeroStep = J1axisLimNeg * J1StepDeg;  // Steps to reach zero for J1
+int J2zeroStep = J2axisLimNeg * J2StepDeg;  // Steps to reach zero for J2
+int J3zeroStep = J3axisLimNeg * J3StepDeg;  // Steps to reach zero for J3
+int J4zeroStep = J4axisLimNeg * J4StepDeg;  // Steps to reach zero for J4
+int J5zeroStep = J5axisLimNeg * J5StepDeg;  // Steps to reach zero for J5
+int J6zeroStep = J6axisLimNeg * J6StepDeg;  // Steps to reach zero for J6
+int J7zeroStep = J7axisLimNeg * J7StepDeg;  // Steps to reach zero for J7
+int J8zeroStep = J8axisLimNeg * J8StepDeg;  // Steps to reach zero for J8
+int J9zeroStep = J9axisLimNeg * J9StepDeg;  // Steps to reach zero for J9
 
-float J8length;
-float J8rot;
-float J8steps;
+// =============================================================================================
+// MASTER STEP COUNTERS
+// =============================================================================================
+// Current step position counters for each joint (initialized at zero position)
+int J1StepM = J1zeroStep;  // Master step counter for J1
+int J2StepM = J2zeroStep;  // Master step counter for J2
+int J3StepM = J3zeroStep;  // Master step counter for J3
+int J4StepM = J4zeroStep;  // Master step counter for J4
+int J5StepM = J5zeroStep;  // Master step counter for J5
+int J6StepM = J6zeroStep;  // Master step counter for J6
+int J7StepM = J7zeroStep;  // Master step counter for J7
+int J8StepM = J8zeroStep;  // Master step counter for J8
+int J9StepM = J9zeroStep;  // Master step counter for J9
 
-float J9length;
-float J9rot;
-float J9steps;
 
-float lineDist;
 
-String WristCon;
-int Quadrant;
+// =============================================================================================
+// CALIBRATION OFFSETS
+// =============================================================================================
+// Home position offset from limit switch (degrees) - fine-tuning after limit detection
+float J1calBaseOff = -6.2;  // J1 calibration offset from limit switch
+float J2calBaseOff = 3.8;   // J2 calibration offset from limit switch
+float J3calBaseOff = 1.4;   // J3 calibration offset from limit switch
+float J4calBaseOff = -.8;   // J4 calibration offset from limit switch
+float J5calBaseOff = 3.1;   // J5 calibration offset from limit switch
+float J6calBaseOff = .5;    // J6 calibration offset from limit switch
+float J7calBaseOff = 0;     // J7 calibration offset
+float J8calBaseOff = 0;     // J8 calibration offset
+float J9calBaseOff = 0;     // J9 calibration offset
 
-unsigned long J1DebounceTime = 0;
-unsigned long J2DebounceTime = 0;
-unsigned long J3DebounceTime = 0;
-unsigned long J4DebounceTime = 0;
-unsigned long J5DebounceTime = 0;
-unsigned long J6DebounceTime = 0;
-unsigned long debounceDelay = 50;
+// =============================================================================================
+// COLLISION DETECTION INDICATORS
+// =============================================================================================
+// Flags indicating collision/error on each joint (encoder mismatch detection)
+int J1collisionTrue = 0;    // J1 collision flag
+int J2collisionTrue = 0;    // J2 collision flag
+int J3collisionTrue = 0;    // J3 collision flag
+int J4collisionTrue = 0;    // J4 collision flag
+int J5collisionTrue = 0;    // J5 collision flag
+int J6collisionTrue = 0;    // J6 collision flag
+int TotalCollision = 0;     // Sum of all collision flags
+int KinematicError = 0;     // Inverse kinematics solution not found
 
-String Alarm = "0";
-String speedViolation = "0";
-float minSpeedDelay = 200;
-float maxMMperSec = 192;
-float linWayDistSP = 1;
-String debug = "";
-String flag = "";
-const int TRACKrotdir = 0;
-float JogStepInc = 1;
+// =============================================================================================
+// EXTERNAL AXIS (LINEAR/ROTARY) VARIABLES
+// =============================================================================================
+// Variables for external axes J7, J8, J9
+float J7length;             // J7 total length/travel
+float J7rot;                // J7 rotation/span
+float J7steps;              // J7 total steps
 
-int J1EncSteps;
-int J2EncSteps;
-int J3EncSteps;
-int J4EncSteps;
-int J5EncSteps;
-int J6EncSteps;
+float J8length;             // J8 total length/travel
+float J8rot;                // J8 rotation/span
+float J8steps;              // J8 total steps
 
-int J1LoopMode;
-int J2LoopMode;
-int J3LoopMode;
-int J4LoopMode;
-int J5LoopMode;
-int J6LoopMode;
+float J9length;             // J9 total length/travel
+float J9rot;                // J9 rotation/span
+float J9steps;              // J9 total steps
 
-#define ROBOT_nDOFs 6
-const int numJoints = 9;
-typedef float tRobotJoints[ROBOT_nDOFs];
-typedef float tRobotPose[ROBOT_nDOFs];
+// =============================================================================================
+// MOTION CONTROL VARIABLES
+// =============================================================================================
+float lineDist;             // Linear distance for current motion
+String WristCon;            // Wrist configuration parameter
+int Quadrant;               // Quadrant for kinematic solutions
 
-//declare in out vars
-float xyzuvw_Out[ROBOT_nDOFs];
-float xyzuvw_In[ROBOT_nDOFs];
-float xyzuvw_Temp[ROBOT_nDOFs];
 
-float JangleOut[ROBOT_nDOFs];
-float JangleIn[ROBOT_nDOFs];
-float joints_estimate[ROBOT_nDOFs];
-float SolutionMatrix[ROBOT_nDOFs][4];
+// =============================================================================================
+// DEBOUNCING & TIMING VARIABLES
+// =============================================================================================
+// Debounce timers for limit switches - prevent false triggering from electrical noise
+unsigned long J1DebounceTime = 0;   // J1 limit switch debounce timer
+unsigned long J2DebounceTime = 0;   // J2 limit switch debounce timer
+unsigned long J3DebounceTime = 0;   // J3 limit switch debounce timer
+unsigned long J4DebounceTime = 0;   // J4 limit switch debounce timer
+unsigned long J5DebounceTime = 0;   // J5 limit switch debounce timer
+unsigned long J6DebounceTime = 0;   // J6 limit switch debounce timer
+unsigned long debounceDelay = 50;   // Debounce delay threshold (milliseconds)
 
-//external axis
-float J7_pos;
-float J8_pos;
-float J9_pos;
+// =============================================================================================
+// SPEED & MOTION CONTROL
+// =============================================================================================
+String Alarm = "0";                 // Error/alarm status flag
+String speedViolation = "0";        // Speed limit violation indicator
+float minSpeedDelay = 200;          // Minimum speed delay (microseconds between steps)
+float maxMMperSec = 192;            // Maximum linear speed (mm/s)
+float linWayDistSP = 1;             // Linear waypoint spacing
+String debug = "";                  // Debug message string
+String flag = "";                   // Status flag string
+const int TRACKrotdir = 0;          // Track rotation direction constant
+float JogStepInc = 1;               // Jog step increment
 
-float J7_In;
-float J8_In;
-float J9_In;
+// =============================================================================================
+// ENCODER STEP COUNTERS
+// =============================================================================================
+// Raw encoder step values for collision detection
+int J1EncSteps;             // J1 encoder current steps
+int J2EncSteps;             // J2 encoder current steps
+int J3EncSteps;             // J3 encoder current steps
+int J4EncSteps;             // J4 encoder current steps
+int J5EncSteps;             // J5 encoder current steps
+int J6EncSteps;             // J6 encoder current steps
 
-float pose[16];
+// =============================================================================================
+// LOOP MODES (Closed/Open Loop Control)
+// =============================================================================================
+// 0 = closed loop (use encoder), 1 = open loop (trust step count)
+int J1LoopMode;             // J1 loop mode
+int J2LoopMode;             // J2 loop mode
+int J3LoopMode;             // J3 loop mode
+int J4LoopMode;             // J4 loop mode
+int J5LoopMode;             // J5 loop mode
+int J6LoopMode;             // J6 loop mode
 
-String moveSequence;
 
-//define rounding vars
-float rndArcStart[6];
-float rndArcMid[6];
-float rndArcEnd[6];
-float rndCalcCen[6];
-String rndData;
-bool rndTrue;
-float rndSpeed;
-bool splineTrue;
-bool splineEndReceived;
-bool estopActive;
+// =============================================================================================
+// ROBOT KINEMATICS - DEGREES OF FREEDOM
+// =============================================================================================
+#define ROBOT_nDOFs 6  // Number of degrees of freedom (6 joints for main arm)
+const int numJoints = 9;  // Total number of joints including external axes
 
-float Xtool = 0;
-float Ytool = 0;
-float Ztool = 0;
-float RZtool = 0;
-float RYtool = 0;
-float RXtool = 0;
+// Kinematics type definitions
+typedef float tRobotJoints[ROBOT_nDOFs];  // Joint angles array
+typedef float tRobotPose[ROBOT_nDOFs];    // End-effector pose array (x,y,z,rx,ry,rz)
 
-//DENAVIT HARTENBERG PARAMETERS
+// =============================================================================================
+// INVERSE & FORWARD KINEMATICS VARIABLES
+// =============================================================================================
+// Output: cartesian position from forward kinematics (x,y,z,rx,ry,rz in degrees)
+float xyzuvw_Out[ROBOT_nDOFs];  // Output cartesian position (rx,ry,rz in degrees)
+// Input: target cartesian position for inverse kinematics
+float xyzuvw_In[ROBOT_nDOFs];   // Input target cartesian position
+// Temporary cartesian position storage
+float xyzuvw_Temp[ROBOT_nDOFs]; // Temporary storage for cartesian coordinates
 
+// =============================================================================================
+// JOINT ANGLE VARIABLES
+// =============================================================================================
+// Output joint angles from inverse kinematics (in degrees)
+float JangleOut[ROBOT_nDOFs];   // Inverse kinematics solution (degrees)
+// Input joint angles for forward kinematics (in degrees)
+float JangleIn[ROBOT_nDOFs];    // Current joint angles (degrees)
+// Estimated joint angles for IK solver guidance
+float joints_estimate[ROBOT_nDOFs];  // Joint estimate for IK convergence
+// Multiple IK solutions for wrist configuration selection
+float SolutionMatrix[ROBOT_nDOFs][4];  // IK solutions matrix (up to 4 solutions)
+
+// =============================================================================================
+// EXTERNAL AXIS POSITION TRACKING
+// =============================================================================================
+// Current position of external axes
+float J7_pos;  // Joint 7 current position
+float J8_pos;  // Joint 8 current position
+float J9_pos;  // Joint 9 current position
+
+// Input position targets for external axes
+float J7_In;   // Joint 7 target position
+float J8_In;   // Joint 8 target position
+float J9_In;   // Joint 9 target position
+
+// =============================================================================================
+// TRANSFORMATION MATRIX & SEQUENCES
+// =============================================================================================
+float pose[16];  // 4x4 transformation matrix (homogeneous coordinates)
+String moveSequence;  // Move sequence identifier for spline/lookahead
+
+
+// =============================================================================================
+// MOTION PROFILE VARIABLES
+// =============================================================================================
+// Rounding/corner rounding for smooth trajectory transitions
+float rndArcStart[6];   // Start point of rounded arc
+float rndArcMid[6];     // Middle point of rounded arc
+float rndArcEnd[6];     // End point of rounded arc
+float rndCalcCen[6];    // Calculated center of rounding
+String rndData;         // Rounding data string
+bool rndTrue;           // Flag indicating rounding is active
+float rndSpeed;         // Speed during rounding motion
+
+// Spline interpolation
+bool splineTrue;        // Flag indicating spline motion active
+bool splineEndReceived; // Flag indicating end of spline sequence
+bool estopActive;       // Emergency stop active flag
+
+// =============================================================================================
+// TOOL FRAME OFFSET (TCP - Tool Center Point)
+// =============================================================================================
+// Offset from wrist flange to tool center point (TCP) - used in kinematics
+float Xtool = 0;   // Tool X offset (mm)
+float Ytool = 0;   // Tool Y offset (mm)
+float Ztool = 0;   // Tool Z offset (mm)
+float RZtool = 0;  // Tool Z rotation offset (degrees)
+float RYtool = 0;  // Tool Y rotation offset (degrees)
+float RXtool = 0;  // Tool X rotation offset (degrees)
+
+// =============================================================================================
+// DENAVIT-HARTENBERG PARAMETERS
+// =============================================================================================
+// DH parameters: [theta, alpha, d, a] for each joint
+// Used for forward kinematics calculations
 float DHparams[6][4] = {
-  { 0, 0, 169.77, 0 },
-  { -90, -90, 0, 64.2 },
-  { 0, 0, 0, 305 },
-  { 0, -90, 222.63, 0 },
-  { 0, 90, 0, 0 },
-  { 180, -90, 41, 0 }
+  { 0, 0, 169.77, 0 },      // J1: theta, alpha, d, a
+  { -90, -90, 0, 64.2 },    // J2: theta, alpha, d, a
+  { 0, 0, 0, 305 },         // J3: theta, alpha, d, a
+  { 0, -90, 222.63, 0 },    // J4: theta, alpha, d, a
+  { 0, 90, 0, 0 },          // J5: theta, alpha, d, a
+  { 180, -90, 41, 0 }       // J6: theta, alpha, d, a
 };
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//MATRIX OPERATION
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//This allow to return a array as an argument instead of using global pointer
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MATRIX OPERATIONS - MACROS FOR EFFICIENT KINEMATICS CALCULATIONS
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// These macros perform 4x4 matrix operations without dynamic allocation
+// Used extensively in forward and inverse kinematics calculations
 
+// Matrix multiply: out = inA * inB (4x4 matrix multiplication)
+// Computes rotation and translation transformations for joint link frames
 #define Matrix_Multiply(out, inA, inB) \
   (out)[0] = (inA)[0] * (inB)[0] + (inA)[4] * (inB)[1] + (inA)[8] * (inB)[2]; \
   (out)[1] = (inA)[1] * (inB)[0] + (inA)[5] * (inB)[1] + (inA)[9] * (inB)[2]; \
@@ -418,6 +550,8 @@ float DHparams[6][4] = {
   (out)[14] = (inA)[2] * (inB)[12] + (inA)[6] * (inB)[13] + (inA)[10] * (inB)[14] + (inA)[14]; \
   (out)[15] = 1;
 
+// Matrix inverse: out = inv(in) - Computes inverse for rotation-only transforms
+// Used for coordinate frame transformations in kinematics
 #define Matrix_Inv(out, in) \
   (out)[0] = (in)[0]; \
   (out)[1] = (in)[4]; \
@@ -436,6 +570,8 @@ float DHparams[6][4] = {
   (out)[14] = -((in)[8] * (in)[12] + (in)[9] * (in)[13] + (in)[10] * (in)[14]); \
   (out)[15] = 1;
 
+// Matrix copy: out = in - Copies 4x4 matrix
+// Simple array copy for transformation matrices
 #define Matrix_Copy(out, in) \
   (out)[0] = (in)[0]; \
   (out)[1] = (in)[1]; \
@@ -454,6 +590,8 @@ float DHparams[6][4] = {
   (out)[14] = (in)[14]; \
   (out)[15] = (in)[15];
 
+// Matrix identity: inout = I - Sets matrix to identity
+// Initializes transform matrices to no transformation
 #define Matrix_Eye(inout) \
   (inout)[0] = 1; \
   (inout)[1] = 0; \
@@ -472,31 +610,14 @@ float DHparams[6][4] = {
   (inout)[14] = 0; \
   (inout)[15] = 1;
 
+// Cumulative matrix multiply: inout = inout * inB
+// Multiplies transformation sequentially without temporary storage
 #define Matrix_Multiply_Cumul(inout, inB) \
   { \
     Matrix4x4 out; \
     Matrix_Multiply(out, inout, inB); \
     Matrix_Copy(inout, out); \
   }
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//DECLARATION OF VARIABLES
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-/// DHM Table parameters
-#define DHM_Alpha 0
-#define DHM_A 1
-#define DHM_Theta 2
-#define DHM_D 3
-
-
-/// Custom robot base (user frame)
-Matrix4x4 Robot_BaseFrame = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
 
 /// Custom robot tool (tool frame, end of arm tool or TCP)
 Matrix4x4 Robot_ToolFrame = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
@@ -1217,7 +1338,7 @@ void forward_kinematics_robot(const T joints[ROBOT_nDOFs], Matrix4x4 target) {
 
 void updatejoints() {
 
-  for (int i = 0; i > ROBOT_nDOFs; i++) {
+  for (int i = 0; i < ROBOT_nDOFs; i++) {
     JangleIn[i] = JangleOut[i];
   }
 }
@@ -1571,9 +1692,17 @@ void inverse_kinematics_raw(const T pose[16], const tRobot DK, const T joints_ap
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//CALCULATE POSITIONS
+// POSITION FEEDBACK & FORWARD KINEMATICS
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// void sendRobotPos()
+//
+// Calculates current Cartesian position from joint angles using forward kinematics,
+// then reports complete robot state to host via serial. Includes:
+// - Joint angles (J1-J6 in degrees)
+// - Cartesian position and orientation (X,Y,Z,Rx,Ry,Rz)
+// - External axis positions (J7,J8,J9)
+// - Status flags (speed violation, debug info, error codes)
+//
 void sendRobotPos() {
 
   updatePos();
@@ -1585,6 +1714,11 @@ void sendRobotPos() {
   flag = "";
 }
 
+// void sendRobotPosSpline()
+//
+// Optimized position reporting for spline mode operation. Sends current state
+// for lookahead trajectory planning without clearing speed violation flag.
+//
 void sendRobotPosSpline() {
 
   updatePos();
@@ -1814,10 +1948,14 @@ void backOff(uint8_t J1req, uint8_t J2req, uint8_t J3req, uint8_t J4req, uint8_t
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//CHECK ENCODERS
+// ENCODER & COLLISION RESET
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
+// void resetEncoders()
+//
+// Synchronizes encoder readings with internal step counters and clears collision flags.
+// Called before motion begins to establish baseline for collision detection.
+// Resets all joint collision flags to prepare for next motion sequence.
+//
 void resetEncoders() {
 
   J1collisionTrue = 0;
@@ -1837,6 +1975,19 @@ void resetEncoders() {
   //delayMicroseconds(5);
 }
 
+// ==================================================================================
+// ENCODER FEEDBACK & COLLISION DETECTION
+// ==================================================================================
+// void checkEncoders()
+//
+// Reads all joint encoders and compares against commanded step positions to detect:
+// - Collision/stall conditions when encoder lags beyond threshold (encOffset)
+// - Motor slip or jamming
+// - Mechanical failures
+//
+// In closed-loop mode (LoopMode=0), updates internal position tracking to match
+// encoder readings for drift correction. Logs collision flags for error reporting.
+//
 void checkEncoders() {
   //read encoders
   J1EncSteps = J1encPos.read() / J1encMult;
@@ -1845,7 +1996,7 @@ void checkEncoders() {
   J4EncSteps = J4encPos.read() / J4encMult;
   J5EncSteps = J5encPos.read() / J5encMult;
   J6EncSteps = J6encPos.read() / J6encMult;
-
+  //Check for collision and update position based on encoder
   if (abs((J1EncSteps - J1StepM)) >= encOffset) {
     if (J1LoopMode == 0) {
       J1collisionTrue = 1;
@@ -1891,9 +2042,20 @@ void checkEncoders() {
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//DRIVE MOTORS J
+// DRIVE MOTORS J - JOINT SPACE STEPPER MOTOR CONTROL
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// driveMotorsJ(int J1-J9step, dirs, String SpeedType, float SpeedVal, ACCspd, DCCspd, ACCramp)
+//
+// Low-level stepper motor driver for joint-space motion. Uses linear interpolation algorithm
+// to synchronize 9 independent stepper motors for coordinated motion. Supports:
+// - Acceleration/deceleration profiling with configurable ramp times
+// - Trapezoid velocity profile (ramp up, constant speed, ramp down)
+// - Per-joint step target and direction control
+// - Speed limits with adaptive delay calculation
+//
+// The algorithm distributes steps across motors using linear interpolation to ensure
+// smooth synchronized motion (Bresenham-style line drawing algorithm).
+//
 void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, int J6step, int J7step, int J8step, int J9step,
                   int J1dir, int J2dir, int J3dir, int J4dir, int J5dir, int J6dir, int J7dir, int J8dir, int J9dir,
                   String SpeedType, float SpeedVal, float ACCspd, float DCCspd, float ACCramp) {
@@ -2103,9 +2265,14 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//DRIVE MOTORS G
+// DRIVE MOTORS G - GCODE STEPPER MOTOR CONTROL
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// driveMotorsG(int J1-J9step, dirs, String SpeedType, float SpeedVal, ACCspd, DCCspd, ACCramp)
+//
+// Stepper motor driver for G-code motion execution. Similar to driveMotorsJ but optimized
+// for G-code command interpretation with speed profile based on feed rate (mm/min).
+// Supports coordinated multi-axis motion with acceleration profiling.
+//
 void driveMotorsG(int J1step, int J2step, int J3step, int J4step, int J5step, int J6step, int J7step, int J8step, int J9step, int J1dir, int J2dir, int J3dir, int J4dir, int J5dir, int J6dir, int J7dir, int J8dir, int J9dir, String SpeedType, float SpeedVal, float ACCspd, float DCCspd, float ACCramp) {
   int steps[] = { J1step, J2step, J3step, J4step, J5step, J6step, J7step, J8step, J9step };
   int dirs[] = { J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir };
@@ -2241,9 +2408,14 @@ void driveMotorsG(int J1step, int J2step, int J3step, int J4step, int J5step, in
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//DRIVE MOTORS L
+// DRIVE MOTORS L - LINEAR MOTION STEPPER CONTROL
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// driveMotorsL(int J1-J9step, dirs, float curDelay)
+//
+// Fixed-speed stepper motor driver for linear motion execution in lookahead mode.
+// Uses constant delay (step interval) for uniform motion speed. Used in spline mode
+// and continuous motion sequences where trajectory timing is pre-calculated.
+//
 void driveMotorsL(int J1step, int J2step, int J3step, int J4step, int J5step, int J6step, int J7step, int J8step, int J9step, int J1dir, int J2dir, int J3dir, int J4dir, int J5dir, int J6dir, int J7dir, int J8dir, int J9dir, float curDelay) {
   // Array of steps, directions, pins, motor directions, and step counters
   int steps[9] = { J1step, J2step, J3step, J4step, J5step, J6step, J7step, J8step, J9step };
@@ -2361,9 +2533,21 @@ void driveMotorsL(int J1step, int J2step, int J3step, int J4step, int J5step, in
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//MOVE J
+// MOVE J - JOINT MOTION PLANNING AND EXECUTION
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// moveJ(String inData, bool response, bool precalc, bool simspeed)
+//
+// Performs inverse kinematics (IK) on target Cartesian position and executes joint motion
+// to reach the target. Handles motion control parameters including acceleration, deceleration,
+// speed limits, and corner rounding. Supports multiple kinematics solutions via wrist config.
+//
+// Parameters:
+//   inData - Movement command string containing: X,Y,Z,Rx,Ry,Rz (Cartesian), J7-J9 (external),
+//            S (speed type/value), Ac (accel), Dc (decel), Rm (ramp), Rnd (rounding), W (wrist config)
+//   response - If true, send position response to host after motion complete
+//   precalc - If true, use pre-calculated joint estimate for IK convergence
+//   simspeed - If true, simulate G-code speed profile instead of direct speed value
+//
 void moveJ(String inData, bool response, bool precalc, bool simspeed) {
 
   int J1dir;
@@ -2622,10 +2806,18 @@ int32_t modbusQuerry(String inData, int function) {
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//READ DATA
+// SERIAL COMMUNICATION & COMMAND BUFFERING
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
+// void processSerial()
+//
+// Reads incoming serial data and buffers commands for execution. Implements:
+// - Command queue with 3-level lookahead buffer (cmdBuffer1/2/3)
+// - Spline mode detection and response timing optimization
+// - Pre-processing of consecutive motion commands for lookahead trajectory planning
+//
+// In spline mode, automatically reads ahead to populate secondary buffer for smooth
+// trajectory generation without interruption between moves.
+//
 void processSerial() {
   if (Serial.available() > 0 and cmdBuffer3 == "") {
     char recieved = Serial.read();
@@ -2722,17 +2914,28 @@ void EstopProg() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setup() {
-  // run once:
-  Serial.begin(9600);
-  Serial8.begin(38400);  // Use Serial8 (pins 34 and 35)
-  // There is no Serial.print before this line
-  load_debug_from_eeprom();
-  load_robot_id_from_eeprom();
+  // ==================================================================================
+  // TEENSY INITIALIZATION - Runs once at startup to configure hardware and state
+  // ==================================================================================
 
+  // Initialize serial communications for main control interface
+  Serial.begin(9600);  // Main serial for host communication (USB/debug)
+  
+  // Initialize Modbus serial communication for external devices
+  Serial8.begin(38400);  // Modbus serial interface (pins 34 and 35)
+  // Note: No Serial output before this line to maintain timing/initialization order
+  
+  // Load persistent configuration from EEPROM
+  load_debug_from_eeprom();      // Restore debug mode setting from EEPROM
+  load_robot_id_from_eeprom();   // Restore robot model, version, serial number info
 
-  // Initialize Modbus communication
+  // Initialize Modbus master node for industrial device communication (slave ID 1)
   node.begin(1, Serial8);
 
+  // ==================================================================================
+  // CONFIGURE STEPPER MOTOR CONTROL PINS - All 9 joints (step/direction pairs)
+  // ==================================================================================
+  // Set all motor step and direction pins as outputs for PWM control
   pinMode(J1stepPin, OUTPUT);
   pinMode(J1dirPin, OUTPUT);
   pinMode(J2stepPin, OUTPUT);
@@ -2752,6 +2955,10 @@ void setup() {
   pinMode(J9stepPin, OUTPUT);
   pinMode(J9dirPin, OUTPUT);
 
+  // ==================================================================================
+  // CONFIGURE LIMIT/HOME SWITCH INPUTS - Calibration switches for all 9 joints
+  // ==================================================================================
+  // Set limit switch pins as inputs for detecting home/limit positions
   pinMode(J1calPin, INPUT);
   pinMode(J2calPin, INPUT);
   pinMode(J3calPin, INPUT);
@@ -2762,9 +2969,18 @@ void setup() {
   pinMode(J8calPin, INPUT);
   pinMode(J9calPin, INPUT);
 
+  // ==================================================================================
+  // CONFIGURE EMERGENCY STOP BUTTON
+  // ==================================================================================
+  // Configure E-stop as input with pull-up resistor (active LOW logic)
   pinMode(EstopPin, INPUT_PULLUP);
+  // Attach interrupt handler to trigger on LOW signal (button pressed)
   attachInterrupt(digitalPinToInterrupt(EstopPin), EstopProg, LOW);
 
+  // ==================================================================================
+  // SET INITIAL MOTOR STATES
+  // ==================================================================================
+  // Set all step pins HIGH (inactive state) - motors step on HIGH->LOW transition
   digitalWrite(J1stepPin, HIGH);
   digitalWrite(J2stepPin, HIGH);
   digitalWrite(J3stepPin, HIGH);
@@ -2775,48 +2991,73 @@ void setup() {
   digitalWrite(J8stepPin, HIGH);
   digitalWrite(J9stepPin, HIGH);
 
-  //clear command buffer array
+  // ==================================================================================
+  // INITIALIZE COMMAND AND MOTION STATE VARIABLES
+  // ==================================================================================
+  // Clear command buffers used for lookahead/spline motion sequencing
   cmdBuffer1 = "";
   cmdBuffer2 = "";
   cmdBuffer3 = "";
-  //reset move command flag
-  moveSequence = "";
-  flag = "";
-  rndTrue = false;
-  splineTrue = false;
-  splineEndReceived = false;
+  
+  // Reset motion control flags and identifiers
+  moveSequence = "";            // Clear move sequence identifier
+  flag = "";                    // Clear status flag string
+  rndTrue = false;              // Disable corner rounding (not active on startup)
+  splineTrue = false;           // Disable spline interpolation
+  splineEndReceived = false;    // Clear end-of-spline marker
 }
 
 void loop() {
+  // ==================================================================================
+  // MAIN CONTROL LOOP - Continuous execution for command processing and motion control
+  // ==================================================================================
+  // This loop runs continuously and processes one command from the command buffer
+  // per iteration. It handles serial communication, kinematics, motor control, and
+  // motion profile generation (spline/lookahead).
+  // ==================================================================================
 
-  ////////////////////////////////////
-  ///////////start loop///////////////
-
+  // ==================================================================================
+  // SERIAL COMMUNICATION STAGE - Read incoming commands from host
+  // ==================================================================================
+  // Only read new serial data if not in the middle of a spline sequence
+  // Spline mode allows continuous motion without interruption by command reading
   if (splineEndReceived == false) {
-    processSerial();
+    processSerial();  // Read incoming serial commands and populate command buffers
   }
-  //dont start unless at least one command has been read in
+
+  // ==================================================================================
+  // COMMAND PROCESSING STAGE - Execute command from primary buffer
+  // ==================================================================================
+  // Only process if at least one command has been received and buffered
   if (cmdBuffer1 != "") {
-    //process data
-    estopActive = false;
-    inData = cmdBuffer1;
-    inData.trim();
-    String function = inData.substring(0, 2);
-    inData = inData.substring(2);
-    KinematicError = 0;
-    debug = "";
+    // Initialize processing state
+    estopActive = false;               // Clear emergency stop flag
+    inData = cmdBuffer1;               // Load command from primary buffer
+    inData.trim();                     // Remove leading/trailing whitespace
+    String function = inData.substring(0, 2);  // Extract 2-letter function code
+    inData = inData.substring(2);      // Remove function code from data string
+    KinematicError = 0;                // Clear kinematic error flag
+    debug = "";                        // Clear debug message
+
+    // ==================================================================================
+    // COMMAND DISPATCHER - Route to handler based on function code
+    // ==================================================================================
+    // Each command is identified by a 2-letter code followed by parameter data
 
     if (function == "HO") {
       DEBUG_PRINTLN("Debug - Received HO command");
-      handle_hello_command();
+      handle_hello_command();  // Send system identification and status
     }
 
     else if (function == "RB") {
+      // System restart command - reboot Teensy controller
       Serial.println("System Restarting");
       reboot();
     }
 
     else if (function == "DB") {
+      // DEBUG CONFIGURATION COMMAND - Enable/disable debug output and persistence
+      // Parameters: [D]<0|1> = debug state, [P]<0|1> = enable persistence across reboots
       String help = "Command DB - Set Debug Parameters\n";
       help += "required [D] - Debug State 0/1 (off/on) Enables / Disabled Serial Debug Mode\n";
       help += "optional [P] - Persistence 0/1 Disable / Enable debug mode persist accross reboots\n\n";
@@ -2879,6 +3120,8 @@ void loop() {
     }
 
     else if (function == "SR") {
+      // SET ROBOT IDENTIFICATION COMMAND - Store hardware/software info to EEPROM
+      // Parameters: [M]<model>[V]<version>[B]<board>[S]<serial>[A]<asset_tag>
       DEBUG_PRINT("Debug - Received SR command with inData: ");
       DEBUG_PRINTLN(inData);
 
@@ -2915,9 +3158,13 @@ void loop() {
       handle_set_robot_id_command(robot_model, robot_version, driver_board, serial_number, asset_tag);
     }
 
-    //-----MODBUS READ HOLDING REGISTER - FUNCTION 03--------------------------------------------
-    //-----------------------------------------------------------------------
+    // ==================================================================================
+    // MODBUS COMMUNICATION COMMANDS - Industrial device control via RS-485
+    // ==================================================================================
+
     else if (function == "BA") {
+      // MODBUS: Read Holding Register (Function 03)
+      // Reads single/multiple 16-bit holding registers from slave device
       int32_t result = modbusQuerry(inData, 3);
       if (result == -1) {
         Serial.println("Modbus Error");
@@ -2926,9 +3173,9 @@ void loop() {
       }
     }
 
-    //-----MODBUS READ COIL - FUNCTION 01--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "BB") {
+      // MODBUS: Read Coil Status (Function 01)
+      // Reads single/multiple ON/OFF coil values from slave device
       int32_t result = modbusQuerry(inData, 1);
       if (result == -1) {
         Serial.println("Modbus Error");
@@ -2937,9 +3184,9 @@ void loop() {
       }
     }
 
-    //-----MODBUS READ INPUT - FUNCTION 02--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "BC") {
+      // MODBUS: Read Input Status (Function 02)
+      // Reads single/multiple ON/OFF input values from slave device
       int32_t result = modbusQuerry(inData, 2);
       if (result == -1) {
         Serial.println("Modbus Error");
@@ -2948,9 +3195,9 @@ void loop() {
       }
     }
 
-    //-----MODBUS READ INPUT REGISTER - FUNCTION 04--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "BD") {
+      // MODBUS: Read Input Register (Function 04)
+      // Reads single/multiple 16-bit input registers from slave device
       int32_t result = modbusQuerry(inData, 4);
       if (result == -1) {
         Serial.println("Modbus Error");
@@ -2959,9 +3206,9 @@ void loop() {
       }
     }
 
-    //-----MODBUS WRITE COIL - FUNCTION 15--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "BE") {
+      // MODBUS: Write Multiple Coils (Function 15)
+      // Writes ON/OFF coil values to slave device
       int32_t result = modbusQuerry(inData, 15);
       if (result == -1) {
         Serial.println("Modbus Error");
@@ -2970,9 +3217,9 @@ void loop() {
       }
     }
 
-    //-----MODBUS WRITE REGISTER - FUNCTION 6--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "BF") {
+      // MODBUS: Write Single Register (Function 06)
+      // Writes single 16-bit register value to slave device
       int32_t result = modbusQuerry(inData, 6);
       if (result == -1) {
         Serial.println("Modbus Error");
@@ -2981,9 +3228,9 @@ void loop() {
       }
     }
 
-    //-----QUERRY DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "MQ") {
+      // MODBUS: Query Drive Position - Read absolute position counter
+      // Reads holding register 0x1207 from drive (absolute position)
       uint8_t result;
       int16_t highRegister;
 
@@ -3003,9 +3250,9 @@ void loop() {
       delay(1000);
     }
 
-    //-----HOME MOTOR DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "HD") {
+      // MODBUS: Home Drive Motor - Trigger homing sequence on drive
+      // Sends control signals to drive for calibration/home position
       uint8_t result;
 
       // Address and value to write
@@ -3034,9 +3281,9 @@ void loop() {
       delay(50);
     }
 
-    //-----RESET DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "RR") {
+      // MODBUS: Reset Drive - Clear drive faults and reinitialize
+      // Writes control registers to drive for reset sequence
       uint8_t result;
 
       // Address and value to write
@@ -3066,9 +3313,9 @@ void loop() {
       delay(50);
     }
 
-    //-----RESET DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "FR") {
+      // MODBUS: Fault Reset - Clear fault condition on drive
+      // Writes fault reset command to drive register 0x0B01
       uint8_t result;
 
       // Address and value to write
@@ -3092,9 +3339,13 @@ void loop() {
       delay(50);
     }
 
-    //-----SPLINE START------------------------------------------------------
-    //-----------------------------------------------------------------------
+    // ==================================================================================
+    // MOTION CONTROL COMMANDS - Spline/Lookahead motion sequences
+    // ==================================================================================
+
     else if (function == "SL") {
+      // SPLINE START - Begin continuous spline motion sequence
+      // Enables spline interpolation mode for smooth path following
       splineTrue = true;
       delay(5);
       Serial.print("SL");
@@ -3104,25 +3355,29 @@ void loop() {
       splineEndReceived = false;
     }
 
-    //----- SPLINE STOP  ----------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "SS") {
+      // SPLINE STOP - End spline motion sequence
+      // Terminates spline mode and sends final robot position to host
       delay(5);
       sendRobotPos();
       splineTrue = false;
       splineEndReceived = false;
     }
 
-    //-----COMMAND TO CLOSE---------------------------------------------------
-    //-----------------------------------------------------------------------
+    // ==================================================================================
+    // SYSTEM & DIAGNOSTIC COMMANDS
+    // ==================================================================================
+
     else if (function == "CL") {
+      // CLOSE CONNECTION - Terminate serial communication
+      // Safely closes serial port connection
       delay(5);
       Serial.end();
     }
 
-    //-----COMMAND TEST LIMIT SWITCHES---------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "TL") {
+      // TEST LIMIT SWITCHES - Read status of all home/limit switches
+      // Returns 0/1 status for each joint's limit switch
 
       String J1calTest = "0";
       String J2calTest = "0";
@@ -3155,9 +3410,9 @@ void loop() {
     }
 
 
-    //-----COMMAND SET ENCODERS TO 1000---------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "SE") {
+      // SET ENCODER VALUES - Reset all encoder counters to 1000
+      // Used for encoder initialization or calibration
       J1encPos.write(1000);
       J2encPos.write(1000);
       J3encPos.write(1000);
@@ -3168,9 +3423,9 @@ void loop() {
       Serial.print("Done");
     }
 
-    //-----COMMAND READ ENCODERS---------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "RE") {
+      // READ ENCODER POSITIONS - Get current step count from all encoders
+      // Returns encoder values for collision detection verification
       J1EncSteps = J1encPos.read();
       J2EncSteps = J2encPos.read();
       J3EncSteps = J3encPos.read();
@@ -3182,9 +3437,9 @@ void loop() {
       Serial.println(Read);
     }
 
-    //-----COMMAND REQUEST POSITION---------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "RP") {
+      // REQUEST POSITION - Query current robot joint angles
+      // Returns current position or error state if alarm active
       //close serial so next command can be read in
       delay(5);
       if (Alarm == "0") {
@@ -3200,8 +3455,9 @@ void loop() {
     //-----COMMAND HOME POSITION---------------------------------------------------
     //-----------------------------------------------------------------------
 
-    //For debugging
     else if (function == "HM") {
+      // MOVE HOME - Move all joints to zero (center) position
+      // For debugging - performs motion to home position and verifies encoders
 
       int J1dir;
       int J2dir;
@@ -3269,15 +3525,16 @@ void loop() {
     }
 
 
-    //-----COMMAND CORRECT POSITION---------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "CP") {
+      // CORRECT POSITION - Synchronize internal position counters with encoder readings
+      // Updates step counters to match encoder feedback for drift correction
       correctRobotPos();
     }
 
-    //-----COMMAND UPDATE PARAMS---------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "UP") {
+      // UPDATE PARAMETERS - Load all robot configuration parameters from host
+      // Updates: tool frame, motor directions, calibration directions, axis limits,
+      // steps/degree, encoder multipliers, and Denavit-Hartenberg parameters
       int TFxStart = inData.indexOf('A');
       int TFyStart = inData.indexOf('B');
       int TFzStart = inData.indexOf('C');
@@ -3470,6 +3727,9 @@ void loop() {
     //-----COMMAND CALIBRATE EXTERNAL AXIS---------------------------------------------------
     //-----------------------------------------------------------------------
     else if (function == "CE") {
+      // CALIBRATE EXTERNAL AXIS - Configure J7, J8, J9 axis parameters
+      // Sets length, rotation range, and step resolution for linear/rotary external axes
+      // Parameters: A<length>B<range>C<steps> for each axis
       int J7lengthStart = inData.indexOf('A');
       int J7rotStart = inData.indexOf('B');
       int J7stepsStart = inData.indexOf('C');
@@ -4837,6 +5097,8 @@ void loop() {
     //----- MOVE V ------ VISION OFFSET ----------------------------------
     //-----------------------------------------------------------------------
     else if (function == "MV") {
+      // MOVE VISION - Cartesian move with vision-based tool orientation correction
+      // Applies vision-detected angle offset to tool frame before motion planning
       int J1dir;
       int J2dir;
       int J3dir;
@@ -5173,6 +5435,8 @@ void loop() {
     //----- MOVE L ---------------------------------------------------
     //-----------------------------------------------------------------------
     else if (function == "ML" and flag == "") {
+      // MOVE LINEAR - Cartesian linear motion with advanced motion profiling
+      // Supports spline lookahead, corner rounding, and motion control parameters
       int J1dir;
       int J2dir;
       int J3dir;
@@ -5633,22 +5897,30 @@ void loop() {
 
 
 
-    //----- MOVE J ---------------------------------------------------
-    //-----------------------------------------------------------------------
+    // ==================================================================================
+    // MOTION COMMANDS - Joint and Cartesian space movement
+    // ==================================================================================
+
     else if (function == "MJ") {
+      // MOVE JOINT - Move to target position specified in joint angles
+      // Uses inverse kinematics if Cartesian target provided
       moveJ(inData, true, false, false);
     }
 
-    //----- MOVE G ---------------------------------------------------
-    //-----------------------------------------------------------------------
     else if (function == "MG") {
+      // MOVE GCODE - Move based on parsed G-code command
+      // Interprets G-code motion parameters and converts to robot motion
       moveJ(inData, true, false, true);
     }
 
 
-    //----- DELETE PROG FROM SD CARD ---------------------------------------------------
-    //-----------------------------------------------------------------------
+    // ==================================================================================
+    // SD CARD FILE OPERATIONS - Store and retrieve motion programs
+    // ==================================================================================
+
     else if (function == "DG") {
+      // DELETE PROGRAM - Remove G-code/motion file from SD card
+      // Parameter: Fn<filename>
       SD.begin(BUILTIN_SDCARD);
       int fileStart = inData.indexOf("Fn");
       String filename = inData.substring(fileStart + 2);
@@ -5939,6 +6211,8 @@ void loop() {
     //----- MOVE C (Cirlce) ---------------------------------------------------
     //-----------------------------------------------------------------------
     else if (function == "MC") {
+      // MOVE CIRCLE - Circular interpolated motion in Cartesian space
+      // Interpolates along circular arc through intermediate point to final point
 
       int J1dir;
       int J2dir;
@@ -6286,6 +6560,8 @@ void loop() {
     //----- MOVE A (Arc) ---------------------------------------------------
     //-----------------------------------------------------------------------
     else if (function == "MA" and flag == "") {
+      // MOVE ARC - Continuous motion along arc path with motion control
+      // Supports lookahead for trajectory optimization and smooth corner rounding
 
       if (rndTrue == true) {
         inData = rndData;
