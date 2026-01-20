@@ -365,8 +365,8 @@ class TkWindow(Tk):
         self.moveLabel = Label(self.moveFrame, text="Movement:")
         self.moveLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
         # Send command button
-        self.sendCommandButton = Button(self.moveFrame, text="Send Command", command=self.armController.prepMLCommand)
-        self.sendCommandButton.grid(row=0, column=3, columnspan=3, padx=5, pady=5)
+        self.sendCommandButtonML = Button(self.moveFrame, text="Send ML Command", command=self.armController.prepMLCommand)
+        self.sendCommandButtonML.grid(row=0, column=3, columnspan=3, padx=5, pady=5)
 
         # Coordinate labels and text boxes
         # Create them
@@ -394,7 +394,38 @@ class TkWindow(Tk):
         self.RyCoordLabel.grid(row=2, column=2, padx=5, pady=5)
         self.RyCoordEntry.grid(row=2, column=3, padx=5, pady=5)
         self.RzCoordLabel.grid(row=2, column=4, padx=5, pady=5)
-        self.RzCoordEntry.grid(row=2, column=5, padx=5, pady=5) 
+        self.RzCoordEntry.grid(row=2, column=5, padx=5, pady=5)
+
+        #RJ - options
+        self.sendCommandButtonRJ = Button(self.moveFrame, text="Send RJ Command", command=self.armController.prepRJCommand)
+        self.sendCommandButtonRJ.grid(row=3, column=3, columnspan=3, padx=5, pady=5)
+        # Coordinate labels and text boxes
+        # Create them
+        self.J1CoordLabel = Label(self.moveFrame, text="J1:")
+        self.J1CoordEntry = Entry(self.moveFrame, width=4)
+        self.J2CoordLabel = Label(self.moveFrame, text="J2:")
+        self.J2CoordEntry = Entry(self.moveFrame, width=4)
+        self.J3CoordLabel = Label(self.moveFrame, text="J3:")
+        self.J3CoordEntry = Entry(self.moveFrame, width=4)
+        self.J4CoordLabel = Label(self.moveFrame, text="J4:")
+        self.J4CoordEntry = Entry(self.moveFrame, width=4)
+        self.J5CoordLabel = Label(self.moveFrame, text="J5:")
+        self.J5CoordEntry = Entry(self.moveFrame, width=4)
+        self.J6CoordLabel = Label(self.moveFrame, text="J6:")
+        self.J6CoordEntry = Entry(self.moveFrame, width=4)
+        # Display them
+        self.J1CoordLabel.grid(row=4, column=0, padx=5, pady=5)
+        self.J1CoordEntry.grid(row=4, column=1, padx=5, pady=5)
+        self.J2CoordLabel.grid(row=4, column=2, padx=5, pady=5)
+        self.J2CoordEntry.grid(row=4, column=3, padx=5, pady=5)
+        self.J3CoordLabel.grid(row=4, column=4, padx=5, pady=5)
+        self.J3CoordEntry.grid(row=4, column=5, padx=5, pady=5)
+        self.J4CoordLabel.grid(row=5, column=0, padx=5, pady=5)
+        self.J4CoordEntry.grid(row=5, column=1, padx=5, pady=5)
+        self.J5CoordLabel.grid(row=5, column=2, padx=5, pady=5)
+        self.J5CoordEntry.grid(row=5, column=3, padx=5, pady=5)
+        self.J6CoordLabel.grid(row=5, column=4, padx=5, pady=5)
+        self.J6CoordEntry.grid(row=5, column=5, padx=5, pady=5)
 
     def fillDebugTab(self):
         # ==========| Variables Frame |==========

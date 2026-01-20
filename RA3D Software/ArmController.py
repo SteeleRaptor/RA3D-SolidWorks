@@ -261,7 +261,42 @@ class ArmController:
             self.sendML(x, y, z, Rx, Ry, Rz)
         else:
             self.root.terminalPrint("ML command not sent due to a value not being a number")
-
+    
+    def prepRJCommand(self):
+        # Read the values from each entry box
+        J1  = self.root.xCoordEntry.get()
+        J2  = self.root.yCoordEntry.get()
+        J3  = self.root.zCoordEntry.get()
+        J4 = self.root.RxCoordEntry.get()
+        J5 = self.root.RyCoordEntry.get()
+        J6 = self.root.RzCoordEntry.get()
+        # Check if any values are blank
+        allValuesNumeric = True
+        if not J1.isnumeric():
+            self.root.terminalPrint("J1 is not a number")
+            allValuesNumeric = False
+        if not J2.isnumeric():
+            self.root.terminalPrint("J2 is not a number")
+            allValuesNumeric = False
+        if not J3.isnumeric():
+            self.root.terminalPrint("J3 is not a number")
+            allValuesNumeric = False
+        if not J4.isnumeric():
+            self.root.terminalPrint("J4 is not a number")
+            allValuesNumeric = False
+        if not J5.isnumeric():
+            self.root.terminalPrint("J5 is not a number")
+            allValuesNumeric = False
+        if not J6.isnumeric():
+            self.root.terminalPrint("J6 is not a number")
+            allValuesNumeric = False
+        
+        if allValuesNumeric:
+            self.root.terminalPrint("All values numeric, sending RJ command")
+            self.sendML(J1, J2, J3, J4, J5, J6)
+        else:
+            self.root.terminalPrint("RJ command not sent due to a value not being a number")
+   
     def sendML(self, X, Y, Z, Rx, Ry, Rz):
         if self.awaitingMoveResponse:
             self.root.statusPrint("Cannot send ML command as currently awaiting response from a previous move command")
@@ -283,6 +318,27 @@ class ArmController:
             self.root.statusPrint("Command not sent due to arm not calibrated")
             return
         
+        # Send the serial command
+        self.serialController.sendSerial(command)
+
+    #RJ - Set Joint Angles
+    def sendRJ(self, J1, J2, J3, J4, J5, J6):
+        if self.awaitingMoveResponse:
+            self.root.statusPrint("Cannot send MJ command as currently awaiting response from a previous move command")
+            return
+        # Create the command
+        command = f"RJA{J1}B{J2}C{J3}D{J4}E{J5}F{J6}J70.00J80.00J90.00Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}Rnd0WFLm000000Q0\n"
+        self.root.terminalPrint("Command to send:")
+        self.root.terminalPrint(command[0:-2])
+        # Check if board is not connected or arm is not calibrated
+        if self.serialController.boardConnected is False:
+            # Inform user in terminal then quit function to avoid sending instruction
+            self.root.statusPrint("Command not sent due to no board connected")
+            return
+        elif self.armCalibrated is False:
+            # Inform user in terminal then quit function to avoid sending instruction
+            self.root.statusPrint("Command not sent due to arm not calibrated")
+            return
         # Send the serial command
         self.serialController.sendSerial(command)
 

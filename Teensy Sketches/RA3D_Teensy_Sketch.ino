@@ -1338,7 +1338,7 @@ void forward_kinematics_robot(const T joints[ROBOT_nDOFs], Matrix4x4 target) {
 
 void updatejoints() {
 
-  for (int i = 0; i < ROBOT_nDOFs; i++) {
+  for (int i = 0; i > ROBOT_nDOFs; i++) {
     JangleIn[i] = JangleOut[i];
   }
 }
