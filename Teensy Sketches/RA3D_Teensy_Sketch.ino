@@ -125,8 +125,8 @@ bool DEBUG = false;
 // TYPE DEFINITIONS
 // =============================================================================================
 #define Table_Size 6
-typedef float Matrix4x4[16];
-typedef float tRobot[66];
+typedef float Matrix4x4[16];  // 4x4 transformation matrix for kinematics
+typedef float tRobot[66];     // Robot data structure
 
 // =============================================================================================
 // SERIAL COMMUNICATION BUFFERS
