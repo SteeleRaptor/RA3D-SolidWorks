@@ -53,6 +53,7 @@ class ArmController:
         self.testingEncoders = False      # Flag for if the encoder test is being performed
         self.awaitingTestResponse = False # Flag for if we are awaiting a response after sending a test command such as for the limit switches or encoders
         self.finishTest = False           # Flag for signifying to the program that the user wants to stop a test
+        self.awaitingPosResponse = False  # Flag for requesting current position
 
     def startArmCalibration(self):
         # Check if calibration is already in progress and exit if so
@@ -212,22 +213,6 @@ class ArmController:
         self.root.J5CurCoord.config(text=self.curJ5)
         self.root.J6CurCoord.config(text=self.curJ6)
 
-    def moveUpdate(self):
-        
-        if self.awaitingMoveResponse is False:
-            return
-
-        if self.serialController.responseReady:
-            response = self.serialController.getLastResponse()
-            self.root.terminalPrint(response)
-            if (response[:1] == 'E'):
-                self.root.statusPrint("Error executing ML command")
-                # Sound the alarms on UI or something
-            else:
-                self.root.statusPrint("ML command executed successfully")
-                self.processPosition(response)
-            self.awaitingMoveResponse = False
-
     def prepMLCommand(self):
         # Read the values from each entry box
         x  = self.root.xCoordEntry.get()
@@ -262,8 +247,32 @@ class ArmController:
             self.root.terminalPrint("All values numeric, sending ML command")
             self.sendML(x, y, z, Rx, Ry, Rz)
         else:
-            self.root.terminalPrint("ML command not sent due to a value not being a number")
+            self.root.statusPrint("ML command not sent due to a value not being a number")
     
+    def sendML(self, X, Y, Z, Rx, Ry, Rz):
+        if self.awaitingMoveResponse:
+            self.root.statusPrint("Cannot send ML command as currently awaiting response from a previous move command")
+            return
+        self.root.terminalPrint("Sending ML command...")
+        # Taken from AR4.py, line XXXX
+        # command = "ML"+"X"+RUN['xVal']+"Y"+RUN['yVal']+"Z"+RUN['zVal']+"Rz"+rzVal+"Ry"+ryVal+"Rx"+rxVal+"J7"+J7Val+"J8"+J8Val+"J9"+J9Val+speedPrefix+Speed+"Ac"+ACCspd+"Dc"+DECspd+"Rm"+ACCramp+"Rnd"+Rounding+"W"+RUN['WC']+"Lm"+LoopMode+"Q"+DisWrist+"\n"
+        # Create the command
+        command = f"MLX{X}Y{Y}Z{Z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}Rnd0WFLm000000Q0\n"
+        self.root.terminalPrint("Command to send:")
+        self.root.terminalPrint(command[0:-2])
+        # Check if board is not connected or arm is not calibrated
+        if self.serialController.boardConnected is False:
+            # Inform user in terminal then quit function to avoid sending instruction
+            self.root.statusPrint("Command not sent due to no board connected")
+            return
+        elif self.armCalibrated is False:
+            # Inform user in terminal then quit function to avoid sending instruction
+            self.root.statusPrint("Command not sent due to arm not calibrated")
+            return
+        
+        # Send the serial command
+        self.serialController.sendSerial(command)
+
     def prepRJCommand(self):
         # Read the values from each entry box
         J1 = self.root.J1CoordEntry.get()
@@ -300,19 +309,16 @@ class ArmController:
             self.sendRJ(J1, J2, J3, J4, J5, J6)
         else:
             self.root.terminalPrint("RJ command not sent due to a value not being a number")
-   
-    def sendML(self, X, Y, Z, Rx, Ry, Rz):
+
+    def sendRJ(self, J1, J2, J3, J4, J5, J6):
         if self.awaitingMoveResponse:
-            self.root.statusPrint("Cannot send ML command as currently awaiting response from a previous move command")
+            self.root.statusPrint("Cannot send MJ command as currently awaiting response from a previous move command")
             return
-        self.root.terminalPrint("Sending ML command...")
-        # Taken from AR4.py, line XXXX
-        # command = "ML"+"X"+RUN['xVal']+"Y"+RUN['yVal']+"Z"+RUN['zVal']+"Rz"+rzVal+"Ry"+ryVal+"Rx"+rxVal+"J7"+J7Val+"J8"+J8Val+"J9"+J9Val+speedPrefix+Speed+"Ac"+ACCspd+"Dc"+DECspd+"Rm"+ACCramp+"Rnd"+Rounding+"W"+RUN['WC']+"Lm"+LoopMode+"Q"+DisWrist+"\n"
+        self.root.terminalPrint("Sending RJ command...")
         # Create the command
-        command = f"MLX{X}Y{Y}Z{Z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}Rnd0WFLm000000Q0\n"
-        self.root.terminalPrint("Command to send:")
-        self.root.terminalPrint(command[0:-2])
-        # Check if board is not connected or arm is not calibrated
+        # RJA0B0C0D0E0F0J70J80J90Sp25Ac10Dc10Rm80WNLm000000
+        command = f"RJA{J1}B{J2}C{J3}D{J4}E{J5}F{J6}J7{0}J8{0}J9{0}Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}WNLm000000\n"
+        # Check if a bord is connected or if the arm is not calibrated
         if self.serialController.boardConnected is False:
             # Inform user in terminal then quit function to avoid sending instruction
             self.root.statusPrint("Command not sent due to no board connected")
@@ -324,31 +330,25 @@ class ArmController:
         
         # Send the serial command
         self.serialController.sendSerial(command)
+        self.awaitingMoveResponse = True # Set the awaiting move response flag 
 
-    # TODO: This entire function neads to be update to the asynchronous system and terminal/status printing
-    def sendRJ(self, J1, J2, J3, J4, J5, J6):
-        if self.awaitingMoveResponse:
-            self.root.statusPrint("Cannot send MJ command as currently awaiting response from a previous move command")
+    def moveUpdate(self):
+        # Return if we aren't awaiting a move response
+        if self.awaitingMoveResponse is False:
             return
-        print("Sending RJ command...")
-        if self.serialController.boardConnected is False:
-            print("Error: No board connected, cancelling RJ command")
-            return
-        elif self.armCalibrated is False:
-            # Inform user in terminal then quit function to avoid sending instruction
-            self.root.statusPrint("Command not sent due to arm not calibrated")
-            return
-        # RJA0B0C0D0E0F0J70J80J90Sp25Ac10Dc10Rm80WNLm000000
-        command = f"RJA{J1}B{J2}C{J3}D{J4}E{J5}F{J6}J7{0}J8{0}J9{0}Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}WNLm000000\n"
-        # Send the command
-        response = self.serialController.sendSerial(command)
-        # Check for any errors
-        '''if (response[:1] == 'E'):
-            print("Error executing MJ command")
-            # Sound the alarms on UI or something
-        else:
-            print("No error executing MJ command")
-        self.processPosition(response)'''  
+        # Check if the serial controller has a response ready
+        if self.serialController.responseReady:
+            # Get the response from the serial controller
+            response = self.serialController.getLastResponse()
+            self.root.terminalPrint(response)
+            # Check if there was an error executing the move
+            if (response[:1] == 'E'):
+                self.root.statusPrint("Error executing ML command")
+                # Sound the alarms on UI or something
+            else:
+                self.root.statusPrint("ML command executed successfully")
+                self.processPosition(response)
+            self.awaitingMoveResponse = False # Reset the flag
 
     def getCalOffsets(self):
         # Grab values from the entry fields, convert to integers, and save
@@ -362,7 +362,7 @@ class ArmController:
     
     # Checks if any of the flags relating to the arm performing a task are True and if so, return True
     def checkIfBusy(self):
-        return self.calibrationInProgress or self.awaitingMoveResponse or self.testingLimitSwitches or self.testingEncoders or self.awaitingTestResponse
+        return self.calibrationInProgress or self.awaitingMoveResponse or self.testingLimitSwitches or self.testingEncoders or self.awaitingTestResponse or self.awaitingPosResponse
     
     def toggleLimitTest(self):
         if self.serialController.boardConnected is False:
@@ -422,7 +422,7 @@ class ArmController:
             self.root.statusPrint("Starting encoder test")
             # Send a "Set Encoder" instruction to set all values to 1000
             # I don't understand the reasoning behind this but this is what the AR4's encoder test code does so it is being included
-            self.serialController.sendSerial("SE\n")
+            #self.serialController.sendSerial("SE\n") # Commented out for now for true encoder values
             # The "Set Encoder" instruction returns a "Done" except it is done with a print instead of println
             # which makes it so the serial can only be read by a "read" instead of "readline".
             # Therefore, we forcibly tell the serialController that it isn't waiting for a response
@@ -456,18 +456,37 @@ class ArmController:
                 self.testingEncoders = False # Reset the test flag
                 self.finishTest = False # Reset the finish testing flag
                 self.root.statusPrint("Stopping encoder test")
+
     def requestPosition(self):
+        # Check if a board is connected
         if self.serialController.boardConnected is False:
             self.root.statusPrint("Failed to request position update. No board is connected")
             return
+        # Check if the arm is busy with anything else
         if self.checkIfBusy() is True:
             self.root.statusPrint("Failed to request position update. Arm is busy.")
             return
-        self.root.terminalPrint("Requesting position update...")
-        command = "RP\n"
-        self.serialController.sendSerial(command)
-    #Moves the robot to a safe position to be turned off
-    def MoveSafe(self):
+        self.root.statusPrint("Requesting position update...")
+        self.serialController.sendSerial("RP\n") # Send instruction
+        self.awaitingPosResponse = True # Set the flag
+
+    def requestPositionUpdate(self):
+        # Return if we aren't awaiting a position response
+        if self.awaitingPosResponse is False:
+            return
+        # Check if the serial controller has a response ready
+        if self.serialController.responseReady:
+            # Get the response from the serial controller
+            response = self.serialController.getLastResponse()
+            self.root.terminalPrint(response)
+            # Inform user and process the position response
+            self.root.statusPrint("Position request fulfilled")
+            self.processPosition(response)
+            # Reset the awaiting position respone flag
+            self.awaitingPosResponse = False
+
+    # Moves the robot to a safe position to be turned off
+    def moveSafe(self):
         if self.serialController.boardConnected is False:
             self.root.statusPrint("Failed")
             return
