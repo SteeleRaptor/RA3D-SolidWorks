@@ -39,6 +39,10 @@ class ArmController:
         self.curRx = None
         self.curRy = None
         self.curRz = None
+        #Orign variables
+        self.originX = None
+        self.originY = None
+        self.originZ = None
         # Stores calibration offset values
         self.J1CalOffset = 0
         self.J2CalOffset = 0
@@ -211,6 +215,7 @@ class ArmController:
         self.root.J4CurCoord.config(text=self.curJ4)
         self.root.J5CurCoord.config(text=self.curJ5)
         self.root.J6CurCoord.config(text=self.curJ6)
+        self.updateDeltaFromOrigin()
 
     def moveUpdate(self):
         
@@ -323,7 +328,8 @@ class ArmController:
             return
         
         # Send the serial command
-        self.serialController.sendSerial(command)
+        response = self.serialController.sendSerial(command)
+        self.processPosition(response) 
 
     # TODO: This entire function neads to be update to the asynchronous system and terminal/status printing
     def sendRJ(self, J1, J2, J3, J4, J5, J6):
@@ -347,8 +353,8 @@ class ArmController:
             print("Error executing MJ command")
             # Sound the alarms on UI or something
         else:
-            print("No error executing MJ command")
-        self.processPosition(response)'''  
+            print("No error executing MJ command")'''
+        self.processPosition(response) 
 
     def getCalOffsets(self):
         # Grab values from the entry fields, convert to integers, and save
@@ -456,6 +462,7 @@ class ArmController:
                 self.testingEncoders = False # Reset the test flag
                 self.finishTest = False # Reset the finish testing flag
                 self.root.statusPrint("Stopping encoder test")
+    # Request position for debugging purposes
     def requestPosition(self):
         if self.serialController.boardConnected is False:
             self.root.statusPrint("Failed to request position update. No board is connected")
@@ -467,8 +474,34 @@ class ArmController:
         command = "RP\n"
         self.serialController.sendSerial(command)
     #Moves the robot to a safe position to be turned off
-    def MoveSafe(self):
+    def moveSafe(self):
         if self.serialController.boardConnected is False:
             self.root.statusPrint("Failed")
             return
         self.sendRJ(self, 0, -40, 40, 0, 90, 0)
+    #-----Origin----
+    def setOrigin(self):
+        if self.serialController.boardConnected is False:
+            self.root.statusPrint("Failed to set origin. No board is connected")
+            return
+        if self.checkIfBusy() is True:
+            self.root.statusPrint("Failed to set origin. Arm is busy.")
+            return
+        self.root.terminalPrint("Setting current position as origin...")
+        self.originX = self.curX
+        self.originY = self.curY
+        self.originZ = self.curZ
+        self.root.xCurCoordOrigin.config(text=self.curX)
+        self.root.yCurCoordOrigin.config(text=self.curY)
+        self.root.zCurCoordOrigin.config(text=self.curZ)
+    def updateDeltaFromOrigin(self):
+        if self.originX is None or self.originY is None or self.originZ is None:
+            self.root.statusPrint("Origin not set")
+            return None, None, None
+        deltaX = float(self.curX) - float(self.originX)
+        deltaY = float(self.curY) - float(self.originY)
+        deltaZ = float(self.curZ) - float(self.originZ)
+        self.root.xDeltaOrigin.config(text=deltaX)
+        self.root.yDeltaOrigin.config(text=deltaY)
+        self.root.zDeltaOrigin.config(text=deltaZ)
+

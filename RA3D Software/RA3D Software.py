@@ -16,7 +16,7 @@ class TkWindow(Tk):
         self.attributes('-topmost', True)
         self.updateDelay = 200 # Delay between update function calls in milliseconds
         # Set the window dimensions and position on screen
-        w = 800 # Window width
+        w = 1000 # Window width
         h = 515 # Window height
         ws = self.winfo_screenwidth() # Get screen width
         hs = self.winfo_screenheight() # Get screen height
@@ -428,6 +428,54 @@ class TkWindow(Tk):
         self.J5CoordEntry.grid(row=5, column=3, padx=5, pady=5)
         self.J6CoordLabel.grid(row=5, column=4, padx=5, pady=5)
         self.J6CoordEntry.grid(row=5, column=5, padx=5, pady=5)
+        #Move to safe position button
+        self.moveToSafeButton = Button(self.moveFrame, text="Move to Safe Position", command=self.armController.moveSafe, width=20)
+        self.moveToSafeButton.grid(row=6, column=0, columnspan=6, padx=5, pady=5)
+        
+        # ==========| Origin Frame |==========
+        self.originFrame = Frame(self.armTab, highlightthickness=2, highlightbackground="#000000")
+        self.originFrame.grid(row=1, column=5, padx=5, pady=5, sticky=W+E+N+S)
+        self.originFrameLabel = Label(self.originFrame, text="Origin:")
+        self.originFrameLabel.grid(row=0, column=0, columnspan=3, padx=5, pady=5, sticky=W)
+        # Send command button
+        self.setOrigin = Button(self.originFrame, text="Set Origin At Current Position", command=self.armController.setOrigin)
+        self.setOrigin.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky=W)
+
+        # Coordinate labels and text boxes
+        # Create them
+        self.xyzOriginFrame = Frame(self.originFrame, highlightthickness=1, highlightbackground="#000000")
+        self.xyzOriginFrame.grid(row=2, column=0, padx=5, pady=5)
+        # Create them
+        self.xCurCoordOriginLabel = Label(self.xyzOriginFrame, text="X:")
+        self.xCurCoordOrigin = Label(self.xyzOriginFrame, text="xxx") # 'xxx' until value reported
+        self.yCurCoordOriginLabel = Label(self.xyzOriginFrame, text="Y:")
+        self.yCurCoordOrigin = Label(self.xyzOriginFrame, text="xxx") # 'xxx' until value reported
+        self.zCurCoordOriginLabel = Label(self.xyzOriginFrame, text="Z:")
+        self.zCurCoordOrigin = Label(self.xyzOriginFrame, text="xxx") # 'xxx' until value reported
+        self.xCurCoordOriginLabel.grid(row=0, column=0, padx=5, pady=5)
+        self.xCurCoordOrigin.grid(row=0, column=1, padx=5, pady=5)
+        self.yCurCoordOriginLabel.grid(row=0, column=2, padx=5, pady=5)
+        self.yCurCoordOrigin.grid(row=0, column=3, padx=5, pady=5)
+        self.zCurCoordOriginLabel.grid(row=0, column=4, padx=5, pady=5)
+        self.zCurCoordOrigin.grid(row=0, column=5, padx=5, pady=5)
+        self.deltaOriginLabel = Label(self.originFrame, text="Delta from Origin:")
+        self.deltaOriginLabel.grid(row=3, column=0, columnspan=6, padx=5, pady=5, sticky=W)
+        #Delta coordinates
+        self.originDeltaFrame = Frame(self.originFrame, highlightthickness=1, highlightbackground="#000000")
+        self.originDeltaFrame.grid(row=4, column=0, padx=5, pady=5)
+
+        self.xDeltaOriginLabel = Label(self.originDeltaFrame, text="ΔX:")
+        self.xDeltaOrigin = Label(self.originDeltaFrame, text="xxx") # 'xxx' until value reported
+        self.yDeltaOriginLabel = Label(self.originDeltaFrame, text="ΔY:")
+        self.yDeltaOrigin = Label(self.originDeltaFrame, text="xxx") # 'xxx' until value reported
+        self.zDeltaOriginLabel = Label(self.originDeltaFrame, text="ΔZ:")
+        self.zDeltaOrigin = Label(self.originDeltaFrame, text="xxx") # 'xxx' until value reported
+        self.xDeltaOriginLabel.grid(row=3, column=0, padx=5, pady=5)
+        self.xDeltaOrigin.grid(row=3, column=1, padx=5, pady=5)
+        self.yDeltaOriginLabel.grid(row=3, column=2, padx=5, pady=5)
+        self.yDeltaOrigin.grid(row=3, column=3, padx=5, pady=5)
+        self.zDeltaOriginLabel.grid(row=3, column=4, padx=5, pady=5)
+        self.zDeltaOrigin.grid(row=3, column=5, padx=5, pady=5)
 
     def fillDebugTab(self):
         # ==========| Variables Frame |==========
