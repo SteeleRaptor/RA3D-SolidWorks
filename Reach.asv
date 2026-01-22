@@ -12,12 +12,12 @@ clc;clear;close all;
 % position(x,y,z), yaw (rotation about z-axis), pitch (rotation about
 % y-axis), and roll (rotation about the x-axis).
 %% Constants
-J1min = -170;
-J1max = 170;
-J2min = -42;
-J2max = 90;
-J3min = -89;
-J3max = 52;
+J1min = -170
+J1max = 170
+J2min = -42
+J2max = 90
+J3min = -89
+J3max = 52
 J4min = -165;
 J4max = 165;
 J5min = -105;
@@ -25,13 +25,8 @@ J5max = 105;
 J6min = -155;
 J6max = 155;
 %% main script
-for i = 1
-    J1 = rand(1)*(J1max-J1min)+J1min
-    J2 = rand(1)*(J2max-J2min)+J2min
-    J3 = rand(1)*(J3max-J3min)+J3min
-    J4 = rand(1)*(J4max-J4min)+J4min
-    J5 = rand(1)*(J5max-J5min)+J5min
-    J6 = rand(1)*(J6max-J6min)+J6min
+for
+    J1 = randi(J1max)
     forwardKinematics([J1,J2,J3,J4,J5,J6])
 end
 
