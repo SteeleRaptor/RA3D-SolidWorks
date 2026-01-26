@@ -53,6 +53,8 @@ class Kinematics:
         pass
 
     def distanceFromLimitSwitches(self, uvw):
+        penalty = 0
+        w = 1  # Weight for penalty term
         # Calculate joint angles from current position with new orientation
         jointAngles = self.solveInverseKinematics([self.outgoingxyzuvw[0], self.outgoingxyzuvw[1], self.outgoingxyzuvw[2], uvw[0], uvw[1], uvw[2]])
         # Calculate distance from each joint to its negative limit
@@ -82,9 +84,9 @@ class Kinematics:
         delta6 = jointAngles[5] - self.currentJointAngles[5]
         # Penalize large joint movements (greater than 180 degrees)
         if abs(delta1) > 180 or abs(delta2) > 180 or abs(delta3) > 180 or abs(delta4) > 180 or abs(delta5) > 180 or abs(delta6) > 180:
-            btotal = btotal + 1000  # Add penalty for large movements
+            penalty = penalty + 1000  # Add penalty for large movements
         # Return total distance metric
-        return z2 + z3 + z4 + z5 + z6
+        return ztotal + w*penalty
 
     # Iterates uvw (orientation) with fixed xyz to find solution furthest from joint limits
     def iterate_uvw(self, uRange, vRange, wRange):
@@ -117,7 +119,7 @@ class Kinematics:
         self.iterate_uvw(uRange, vRange, wRange)
         # Solve inverse kinematics with optimized orientation
         return self.solveInverseKinematics(self.outgoingxyzuvw)
-
+        
     # Check for collisions based on XYZ position with constrained orientations
     def collisionAvoidanceCheck(self, xyz):
         # Define U (roll) range in degrees: -90 to 90

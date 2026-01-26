@@ -1,3 +1,4 @@
+from asyncio import wait
 import re
 from SerialController import SerialController
 from Kinematics import Kinematics
@@ -7,6 +8,7 @@ class ArmController:
         # Save references to the main window and the serial controller
         self.root = root
         self.serialController = serialController
+        self.kinematics = Kinematics
         # Arm calibration variables
         self.armCalibrated = False # Flag to signify if the arm has been calibrated
         self.calibrationInProgress = False # Flag to signify if calibration is currently in progress
@@ -280,7 +282,7 @@ class ArmController:
     #custom move linear command that calculates inverse kinematics before sending and uses RJ
     #This function may not be much different but InverseKinematics is needed for printing
     def moveLinearCustom(self, X, Y, Z, Rx, Ry, Rz):
-        kinematics = Kinematics(self.root)
+        
         outgoingJointAngles = kinematics.solveInverseKinematics([X, Y, Z, Rx, Ry, Rz])
         self.sendRJ(outgoingJointAngles[0], outgoingJointAngles[1], outgoingJointAngles[2], outgoingJointAngles[3], outgoingJointAngles[4], outgoingJointAngles[5])
     def prepRJCommand(self):
@@ -528,4 +530,33 @@ class ArmController:
         self.root.xDeltaOrigin.config(text=deltaX)
         self.root.yDeltaOrigin.config(text=deltaY)
         self.root.zDeltaOrigin.config(text=deltaZ)
+    #example if given gcode or some other file and converted
+    def lineTest(self):
+        uBound = [90,90]
+        vBound = [0,90]
+        wBound = [0,90]
+        x=[-30,-20,-10,0,10,20,30,40]
+        y=[0,0,0,0,0,0,0,0]
+        z=[0,0,0,0,0,0,0,0]
+        xyz = self.relativeToAbsolute(x,y,z)
+        for i in range(len(x)):
+            outgoingJointAngles = self.kinematics.solveInverseKinematicsFreeUVW(xyz[:][i], uBound, vBound, wBound)
+            self.sendRJ(outgoingJointAngles[0], outgoingJointAngles[1], outgoingJointAngles[2], outgoingJointAngles[3], outgoingJointAngles[4], outgoingJointAngles[5])
+            wait(2000) #wait 2 seconds between moves
+    def SquareTest(self):
+        #Linear sequencing needs to be implemented for this to work properl
+        pass
+    def dynamicgcodeTest(self, gcodeList):
+        pass
+    #Convert absolute coordinates to relative based on origin
+    def absoluteToRelative(self, absX, absY, absZ):
+        relX = float(absX) - float(self.originX)
+        relY = float(absY) - float(self.originY)
+        relZ = float(absZ) - float(self.originZ)
+        return relX, relY, relZ
+    def relativeToAbsolute(self, relX, relY, relZ):
+        absX = float(relX) + float(self.originX)
+        absY = float(relY) + float(self.originY)
+        absZ = float(relZ) + float(self.originZ)
+        return absX, absY, absZ
 
