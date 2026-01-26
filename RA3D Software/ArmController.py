@@ -500,7 +500,8 @@ class ArmController:
         if self.serialController.boardConnected is False:
             self.root.statusPrint("Failed")
             return
-        self.sendRJ(self, 0, -40, 40, 0, 90, 0)
+        self.sendRJ(0, -40, 40, 0, 90, 0)
+
     #-----Origin----
     def setOrigin(self):
         if self.serialController.boardConnected is False:
@@ -516,6 +517,7 @@ class ArmController:
         self.root.xCurCoordOrigin.config(text=self.curX)
         self.root.yCurCoordOrigin.config(text=self.curY)
         self.root.zCurCoordOrigin.config(text=self.curZ)
+
     def updateDeltaFromOrigin(self):
         if self.originX is None or self.originY is None or self.originZ is None:
             self.root.statusPrint("Origin not set")

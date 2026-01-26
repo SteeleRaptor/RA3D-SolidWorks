@@ -158,7 +158,7 @@ class TkWindow(Tk):
         self.reportedPosLabel.grid(row=0, column=0, columnspan=5, padx=5, pady=5, sticky=W)
         # Request position button
         self.requestPosButton = Button(self.reportedPosFrame, text="Request Position", command=self.armController.requestPositionManual, width=15)
-        self.requestPosButton.grid(row=0, column=1, padx=5, pady=5, sticky=W)
+        self.requestPosButton.grid(row=0, column=1, padx=5, pady=5, sticky=E)
         # Reported position coordinate labels
         # XYZ
         self.xyzPosFrame = Frame(self.reportedPosFrame, highlightthickness=1, highlightbackground="#000000")
@@ -441,7 +441,7 @@ class TkWindow(Tk):
         
         # ==========| Origin Frame |==========
         self.originFrame = Frame(self.armTab, highlightthickness=2, highlightbackground="#000000")
-        self.originFrame.grid(row=1, column=5, padx=5, pady=5, sticky=W+E+N+S)
+        self.originFrame.grid(row=1, column=3, padx=5, pady=5, sticky=W+E+N+S)
         self.originFrameLabel = Label(self.originFrame, text="Origin:")
         self.originFrameLabel.grid(row=0, column=0, columnspan=3, padx=5, pady=5, sticky=W)
         # Send command button
@@ -452,19 +452,21 @@ class TkWindow(Tk):
         # Create them
         self.xyzOriginFrame = Frame(self.originFrame, highlightthickness=1, highlightbackground="#000000")
         self.xyzOriginFrame.grid(row=2, column=0, padx=5, pady=5)
-        # Create them
+        # Create the widgets
         self.xCurCoordOriginLabel = Label(self.xyzOriginFrame, text="X:")
         self.xCurCoordOrigin = Label(self.xyzOriginFrame, text="xxx") # 'xxx' until value reported
         self.yCurCoordOriginLabel = Label(self.xyzOriginFrame, text="Y:")
         self.yCurCoordOrigin = Label(self.xyzOriginFrame, text="xxx") # 'xxx' until value reported
         self.zCurCoordOriginLabel = Label(self.xyzOriginFrame, text="Z:")
         self.zCurCoordOrigin = Label(self.xyzOriginFrame, text="xxx") # 'xxx' until value reported
+        # Display the widgets
         self.xCurCoordOriginLabel.grid(row=0, column=0, padx=5, pady=5)
         self.xCurCoordOrigin.grid(row=0, column=1, padx=5, pady=5)
         self.yCurCoordOriginLabel.grid(row=0, column=2, padx=5, pady=5)
         self.yCurCoordOrigin.grid(row=0, column=3, padx=5, pady=5)
         self.zCurCoordOriginLabel.grid(row=0, column=4, padx=5, pady=5)
         self.zCurCoordOrigin.grid(row=0, column=5, padx=5, pady=5)
+
         self.deltaOriginLabel = Label(self.originFrame, text="Delta from Origin:")
         self.deltaOriginLabel.grid(row=3, column=0, columnspan=6, padx=5, pady=5, sticky=W)
         #Delta coordinates
@@ -489,6 +491,36 @@ class TkWindow(Tk):
         self.debugVarFrame = Frame(self.debugTab, highlightthickness=2, highlightbackground="#000000", width=200, height=460)
         self.debugVarFrame.grid(row=0, column=0, padx=5, pady=5)
         self.debugVarFrame.grid_propagate(False)
+        # ===| SerialController Variables |===
+        self.serDebugFrame = Frame(self.debugVarFrame, highlightthickness=1, highlightbackground="#000000")
+        self.serDebugFrame.grid(row=0, column=0, padx=5, pady=5, sticky=W)
+        self.serDebugLabel = Label(self.serDebugFrame, text="SerialController:")
+        self.serDebugLabel.grid(row=0, column=0, padx=5, pady=5, sticky=W)
+        # boardConnected
+        self.serDebugBoardLabel = Label(self.serDebugFrame, text="boardConnected = ")
+        self.serDebugBoardLabel.grid(row=1, column=0, padx=5, pady=5, sticky=W)
+        # waitingForResponse
+        self.serDebugWaitLabel = Label(self.serDebugFrame, text="waitingForResponse = ")
+        self.serDebugWaitLabel.grid(row=2, column=0, padx=5, pady=5, sticky=W)
+        # responseReady
+        self.serDebugRespLabel = Label(self.serDebugFrame, text="responseReady = ")
+        self.serDebugRespLabel.grid(row=3, column=0, padx=5, pady=5, sticky=W)
+
+        # ===| ArmController Variables |===
+        self.armDebugFrame = Frame(self.debugVarFrame, highlightthickness=1, highlightbackground="#000000")
+        self.armDebugFrame.grid(row=1, column=0, padx=5, pady=5, sticky=W)
+        self.armDebugLabel = Label(self.armDebugFrame, text="ArmController:")
+        self.armDebugLabel.grid(row=0, column=0, padx=5, pady=5, sticky=W)
+        # armCalibrated
+        self.armDebugCalLabel = Label(self.armDebugFrame, text="armCalibrated = ")
+        self.armDebugCalLabel.grid(row=1, column=0, padx=5, pady=5, sticky=W)
+        # calibrationinProgress
+        self.armDebugCalInProgLabel = Label(self.armDebugFrame, text="calibrationInProgress = ")
+        self.armDebugCalInProgLabel.grid(row=2, column=0, padx=5, pady=5, sticky=W)
+        # calibrationState
+        self.armDebugCalStateLabel = Label(self.armDebugFrame, text="calibrationState = ")
+        self.armDebugCalStateLabel.grid(row=3, column=0, padx=5, pady=5, sticky=W)
+        # ===| PrintController Variables |===
 
         # ==========| Terminal Frame |==========
         self.termFrame = Frame(self.debugTab, bg="#00FFFF", highlightthickness=2, highlightbackground="#000000")
@@ -519,7 +551,7 @@ class TkWindow(Tk):
         Label(self.settingsTab, text="Nothing to see here at the moment (WIP)").pack(fill="both", expand=True)
        
     def update(self):
-        #print("\nUpdate function called:")
+        self.updateDebugVars() # Update the debug tab variables
 
         # ==========| SerialController |==========
 
@@ -541,6 +573,19 @@ class TkWindow(Tk):
 
         # Set up another call to the update function after updateDelay milliseconds
         self.after(self.updateDelay, self.update)
+
+    def updateDebugVars(self):
+        # SerialController vars
+        self.serDebugBoardLabel.config(text=f"boardConnected = {self.serialController.boardConnected}")
+        self.serDebugWaitLabel.config(text=f"waitingForResponse = {self.serialController.waitingForResponse}")
+        self.serDebugRespLabel.config(text=f"responseReady = {self.serialController.responseReady}")
+
+        # ArmController vars
+        self.armDebugCalLabel.config(text=f"armCalibrated = {self.armController.armCalibrated}")
+        self.armDebugCalInProgLabel.config(text=f"calibrationInProgress = {self.armController.calibrationInProgress}")
+        self.armDebugCalStateLabel.config(text=f"calibrationState = {self.armController.calibrationState}")
+
+        # PrintController vars
 
     # Called whenever the selection in the port dropdown is changed
     def portSelectionChanged(self, *args):
