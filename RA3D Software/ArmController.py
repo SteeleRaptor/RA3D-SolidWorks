@@ -279,6 +279,9 @@ class ArmController:
             return
         # Send the serial command
         self.serialController.sendSerial(command)
+    def resetAwaitingResponse(self):
+        self.awaitingMoveResponse = False
+        self.serialController.waitingForResponse = False
     #custom move linear command that calculates inverse kinematics before sending and uses RJ
     #This function may not be much different but InverseKinematics is needed for printing
     def moveLinearCustom(self, X, Y, Z, Rx, Ry, Rz):
@@ -364,12 +367,12 @@ class ArmController:
 
     def getCalOffsets(self):
         # Grab values from the entry fields, convert to integers, and save
-        self.J1CalOffset = int(self.root.J1OffsetEntry.get())
-        self.J2CalOffset = int(self.root.J2OffsetEntry.get())
-        self.J3CalOffset = int(self.root.J3OffsetEntry.get())
-        self.J4CalOffset = int(self.root.J4OffsetEntry.get())
-        self.J5CalOffset = int(self.root.J5OffsetEntry.get())
-        self.J6CalOffset = int(self.root.J6OffsetEntry.get())
+        self.J1CalOffset = float(self.root.J1OffsetEntry.get())
+        self.J2CalOffset = float(self.root.J2OffsetEntry.get())
+        self.J3CalOffset = float(self.root.J3OffsetEntry.get())
+        self.J4CalOffset = float(self.root.J4OffsetEntry.get())
+        self.J5CalOffset = float(self.root.J5OffsetEntry.get())
+        self.J6CalOffset = float(self.root.J6OffsetEntry.get())
         self.root.terminalPrint(f"Calibration offsets J1: {self.J1CalOffset}, J2: {self.J2CalOffset}, J3: {self.J3CalOffset}, J4: {self.J4CalOffset}, J5: {self.J5CalOffset}, J6: {self.J6CalOffset}")
     
     # Checks if any of the flags relating to the arm performing a task are True and if so, return True
@@ -439,6 +442,7 @@ class ArmController:
             # which makes it so the serial can only be read by a "read" instead of "readline".
             # Therefore, we forcibly tell the serialController that it isn't waiting for a response
             self.serialController.waitingForResponse = False
+
 
     def encoderTestUpdate(self):
         if self.awaitingTestResponse is False:
