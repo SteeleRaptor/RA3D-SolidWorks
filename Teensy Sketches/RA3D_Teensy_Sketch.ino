@@ -427,7 +427,7 @@ int J3LoopMode;             // J3 loop mode
 int J4LoopMode;             // J4 loop mode
 int J5LoopMode;             // J5 loop mode
 int J6LoopMode;             // J6 loop mode
-
+int closedLoopTrue;        // Overall closed loop flag
 
 // =============================================================================================
 // ROBOT KINEMATICS - DEGREES OF FREEDOM
@@ -1781,7 +1781,10 @@ void sendRobotPosSpline() {
 }
 
 void updatePos() {
-
+  if (closedLoopTrue){
+    // Read encoder position and update internal step counters from encoder feedback
+    readEncoders();
+  }
   // Convert J1 step count to angle in degrees (relative to zero position)
   JangleIn[0] = (J1StepM - J1zeroStep) / J1StepDeg;
   // Convert J2 step count to angle in degrees
@@ -1807,7 +1810,7 @@ void updatePos() {
 }
 
 
-
+//Update Master step and send postion through serial
 void correctRobotPos() {
 
   // Read encoder position and update internal step counters from encoder feedback
@@ -2094,23 +2097,17 @@ void resetEncoders() {
   J5collisionTrue = 0;
   // Reset J6 collision flag
   J6collisionTrue = 0;
-
-  //set encoders to current position
-  // Synchronize J1 encoder with current step position
-  J1encPos.write(J1StepM * J1encMult);
-  // Synchronize J2 encoder with current step position
-  J2encPos.write(J2StepM * J2encMult);
-  // Synchronize J3 encoder with current step position
-  J3encPos.write(J3StepM * J3encMult);
-  // Synchronize J4 encoder with current step position
-  J4encPos.write(J4StepM * J4encMult);
-  // Synchronize J5 encoder with current step position
-  J5encPos.write(J5StepM * J5encMult);
-  // Synchronize J6 encoder with current step position
-  J6encPos.write(J6StepM * J6encMult);
-  //delayMicroseconds(5);
 }
-
+//Made by Justin Fauson
+//Sets Master step to encoder position
+void readEncoders() {
+      J1StepM = J1encPos.read() / J1encMult;
+      J2StepM = J2encPos.read() / J2encMult;
+      J3StepM = J3encPos.read() / J3encMult;
+      J4StepM = J4encPos.read() / J4encMult;
+      J5StepM = J5encPos.read() / J5encMult;
+      J6StepM = J6encPos.read() / J6encMult;
+}
 // ==================================================================================
 // ENCODER FEEDBACK & COLLISION DETECTION
 // ==================================================================================
@@ -2718,7 +2715,7 @@ void driveMotorsL(int J1step, int J2step, int J3step, int J4step, int J5step, in
 //   simspeed - If true, simulate G-code speed profile instead of direct speed value
 //
 void moveJ(String inData, bool response, bool precalc, bool simspeed) {
-
+  
   int J1dir;
   int J2dir;
   int J3dir;
@@ -3277,7 +3274,9 @@ void loop() {
     // Read incoming serial commands and populate command buffers
     processSerial();  // Read incoming serial commands and populate command buffers
   }
-
+  if (J1LoopMode == 0 || J2LoopMode == 0 || J3LoopMode == 0 || J4LoopMode == 0 || J5LoopMode == 0 || J6LoopMode == 0) {
+    closedLoopTrue = 1;
+  }
   // ==================================================================================
   // COMMAND PROCESSING STAGE - Execute command from primary buffer
   // ==================================================================================
@@ -4542,7 +4541,7 @@ void loop() {
       String SpeedType = "p";
       float SpeedVal = 50;
       float ACCramp = 50;
-
+      //move to center positions except J5 to 45deg
       driveMotorsJ(J1stepCen, J2stepCen, J3stepCen, J4stepCen, J5step45, J6stepCen, J7stepCen, J8stepCen, J9stepCen, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
       sendRobotPos();
       inData = "";  // Clear recieved buffer
@@ -5647,7 +5646,7 @@ void loop() {
       float J4Angle;
       float J5Angle;
       float J6Angle;
-
+      //Read angles from command
       J1Angle = inData.substring(J1stepStart + 1, J2stepStart).toFloat();
       J2Angle = inData.substring(J2stepStart + 1, J3stepStart).toFloat();
       J3Angle = inData.substring(J3stepStart + 1, J4stepStart).toFloat();
@@ -5665,13 +5664,18 @@ void loop() {
       WristCon = inData.substring(WristConStart + 1, LoopModeStart);
       String LoopMode = inData.substring(LoopModeStart + 2);
       LoopMode.trim();
+      //read Loop Modes from command
       J1LoopMode = LoopMode.substring(0, 1).toInt();
       J2LoopMode = LoopMode.substring(1, 2).toInt();
       J3LoopMode = LoopMode.substring(2, 3).toInt();
       J4LoopMode = LoopMode.substring(3, 4).toInt();
       J5LoopMode = LoopMode.substring(4, 5).toInt();
       J6LoopMode = LoopMode.substring(5).toInt();
-
+      
+      if (J1LoopMode == 0 || J2LoopMode == 0 || J3LoopMode == 0 || J4LoopMode == 0 || J5LoopMode == 0 || J6LoopMode == 0) {
+        closedLoopTrue = 1;
+      }
+      //Calculates steps from angle
       int J1futStepM = (J1Angle + J1axisLimNeg) * J1StepDeg;
       int J2futStepM = (J2Angle + J2axisLimNeg) * J2StepDeg;
       int J3futStepM = (J3Angle + J3axisLimNeg) * J3StepDeg;
@@ -5681,7 +5685,9 @@ void loop() {
       int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
       int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
       int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
-
+      if (closedLoop){
+        readEncoders();
+      }
       //calc delta from current to destination
       int J1stepDif = J1StepM - J1futStepM;
       int J2stepDif = J2StepM - J2futStepM;
@@ -5741,7 +5747,9 @@ void loop() {
       if (TotalAxisFault == 0 && KinematicError == 0) {
         resetEncoders();
         driveMotorsJ(abs(J1stepDif), abs(J2stepDif), abs(J3stepDif), abs(J4stepDif), abs(J5stepDif), abs(J6stepDif), abs(J7stepDif), abs(J8stepDif), abs(J9stepDif), J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
-        checkEncoders();
+        if (closedLoop){
+          checkEncoders();
+        }
         sendRobotPos();
       } else if (KinematicError == 1) {
         Alarm = "ER";
