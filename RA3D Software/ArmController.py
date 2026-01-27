@@ -9,6 +9,7 @@ class ArmController:
         self.root = root
         self.serialController = serialController
         self.kinematics = Kinematics
+        self.LoopMode = 0 #Default loop mode Closed
         # Arm calibration variables
         self.armCalibrated = False # Flag to signify if the arm has been calibrated
         self.calibrationInProgress = False # Flag to signify if calibration is currently in progress
@@ -265,7 +266,7 @@ class ArmController:
         # Taken from AR4.py, line XXXX
         # command = "ML"+"X"+RUN['xVal']+"Y"+RUN['yVal']+"Z"+RUN['zVal']+"Rz"+rzVal+"Ry"+ryVal+"Rx"+rxVal+"J7"+J7Val+"J8"+J8Val+"J9"+J9Val+speedPrefix+Speed+"Ac"+ACCspd+"Dc"+DECspd+"Rm"+ACCramp+"Rnd"+Rounding+"W"+RUN['WC']+"Lm"+LoopMode+"Q"+DisWrist+"\n"
         # Create the command
-        command = f"MLX{X}Y{Y}Z{Z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}Rnd0WFLm000000Q0\n"
+        command = f"MLX{X}Y{Y}Z{Z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}Rnd0WFLm{self.LoopMode*6}Q0\n"
         self.root.terminalPrint("Command to send:")
         self.root.terminalPrint(command[0:-2])
         # Check if board is not connected or arm is not calibrated
@@ -332,7 +333,7 @@ class ArmController:
         self.root.terminalPrint("Sending RJ command...")
         # Create the command
         # RJA0B0C0D0E0F0J70J80J90Sp25Ac10Dc10Rm80WNLm000000
-        command = f"RJA{J1}B{J2}C{J3}D{J4}E{J5}F{J6}J7{0}J8{0}J9{0}Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}WNLm000000\n"
+        command = f"RJA{J1}B{J2}C{J3}D{J4}E{J5}F{J6}J7{0}J8{0}J9{0}Sp{self.speed}Ac{self.acceleration}Dc{self.deceleration}Rm{self.ramp}WNLm{self.LoopMode*6}\n"
         # Check if a bord is connected or if the arm is not calibrated
         if self.serialController.boardConnected is False:
             # Inform user in terminal then quit function to avoid sending instruction
@@ -500,7 +501,12 @@ class ArmController:
             self.processPosition(response)
             # Reset the awaiting position respone flag
             self.awaitingPosResponse = False
-
+    def setOpenLoop(self):
+        self.LoopMode = 1
+        self.root.loopStatus.config(text="Open Loop")
+    def setClosedLoop(self):
+        self.LoopMode = 0
+        self.root.loopStatus.config(text="Closed Loop")
     # Moves the robot to a safe position to be turned off
     def moveSafe(self):
         if self.serialController.boardConnected is False:
@@ -508,7 +514,7 @@ class ArmController:
             return
         self.sendRJ(0, -40, 40, 0, 90, 0)
 
-    #-----Origin----
+    #--------Origin-------
     def setOrigin(self):
         if self.serialController.boardConnected is False:
             self.root.statusPrint("Failed to set origin. No board is connected")
@@ -534,6 +540,9 @@ class ArmController:
         self.root.xDeltaOrigin.config(text=deltaX)
         self.root.yDeltaOrigin.config(text=deltaY)
         self.root.zDeltaOrigin.config(text=deltaZ)
+
+    #----------------------------Testing Functions----------------------------------------
+
     #example if given gcode or some other file and converted
     def lineTest(self):
         uBound = [90,90]

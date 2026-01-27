@@ -16,7 +16,7 @@ class TkWindow(Tk):
         self.attributes('-topmost', True)
         self.updateDelay = 200 # Delay between update function calls in milliseconds
         # Set the window dimensions and position on screen
-        w = 1000 # Window width
+        w = 1200 # Window width
         h = 515 # Window height
         ws = self.winfo_screenwidth() # Get screen width
         hs = self.winfo_screenheight() # Get screen height
@@ -440,7 +440,21 @@ class TkWindow(Tk):
         #Move to safe position button
         self.moveToSafeButton = Button(self.moveFrame, text="Move to Safe Position", command=self.armController.moveSafe, width=20)
         self.moveToSafeButton.grid(row=6, column=0, columnspan=6, padx=5, pady=5)
-        
+
+        # ==========| Loop Frame |==========
+        self.loopFrame = Frame(self.armTab, highlightthickness=2, highlightbackground="#000000")
+        self.loopFrame.grid(row=0, column=3, padx=5, pady=5, sticky=W+E+N+S)
+        self.loopFrameLabel = Label(self.loopFrame, text="Loop Mode:")
+        self.loopFrameLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
+        self.openLoopButton = Button(self.loopFrame, text="Open Loop", command=self.armController.setOpenLoop)
+        self.openLoopButton.grid(row=1, column=0, padx=5, pady=5)
+        self.closedLoopButton = Button(self.loopFrame, text="Closed Loop", command=self.armController.setClosedLoop)
+        self.closedLoopButton.grid(row=1, column=1, padx=5, pady=5)
+        self.loopStatusLabel = Label(self.loopFrame, text="Status:")
+        self.loopStatusLabel.grid(row=2, column=0, padx=5, pady=5, sticky=W)
+        self.loopStatus = Label(self.loopFrame, text="Unknown")
+        self.loopStatus.grid(row=2, column=1, padx=5, pady=5, sticky=W)
+
         # ==========| Origin Frame |==========
         self.originFrame = Frame(self.armTab, highlightthickness=2, highlightbackground="#000000")
         self.originFrame.grid(row=1, column=3, padx=5, pady=5, sticky=W+E+N+S)
