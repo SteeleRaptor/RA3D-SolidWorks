@@ -104,7 +104,7 @@ float J3axisLimNeg = 89;
 float J4axisLimPos = 180;
 float J4axisLimNeg = 180;
 float J5axisLimPos = 105;
-float J5axisLimNeg = 105;
+float J5axisLimNeg = 105-19;//J5 limit switch is about 19 degrees closer
 float J6axisLimPos = 180;
 float J6axisLimNeg = 180;
 float J7axisLimPos = 3450;
@@ -1444,6 +1444,15 @@ void resetEncoders() {
   J5collisionTrue = 0;
   J6collisionTrue = 0;
 
+}
+//Only to be used for calibration
+void setEncoders() {
+      J1encPos.write(J1StepM * J1encMult);
+      J2encPos.write(J2StepM * J2encMult);
+      J3encPos.write(J3StepM * J3encMult);
+      J4encPos.write(J4StepM * J4encMult);
+      J5encPos.write(J5StepM * J5encMult);
+      J6encPos.write(J6StepM * J6encMult);
 }
 //Made by Justin Fauson
 //Sets Master step to encoder position
@@ -3315,7 +3324,8 @@ void loop() {
 
 
       //set master steps and center step
-
+      //Master step starts at limit switch position
+      //Center step is the delta in steps to move to the center.
       if (J1req == 1) {
         if (J1CalDir == 1) {
           J1StepM = ((J1axisLim) + J1calBaseOff + J1calOff) * J1StepDeg;
@@ -3462,7 +3472,7 @@ void loop() {
       String SpeedType = "p";
       float SpeedVal = 50;
       float ACCramp = 50;
-
+      setEncoders();
       driveMotorsJ(J1stepCen, J2stepCen, J3stepCen, J4stepCen, J5step90, J6stepCen, J7stepCen, J8stepCen, J9stepCen, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
       sendRobotPos();
       inData = "";  // Clear recieved buffer

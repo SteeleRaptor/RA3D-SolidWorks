@@ -370,9 +370,12 @@ class TkWindow(Tk):
         self.linearMoveFrame.grid(row=0, column=0, padx=5, pady=5, sticky=W+E+N+S)
         self.linearMoveLabel = Label(self.linearMoveFrame, text="Linear Move:")
         self.linearMoveLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
+        # Populate xyz button
+        self.getXYZButton = Button(self.linearMoveFrame, text="Get XYZ", command = self.armController.populateML)
+        self.getXYZButton.grid(row=0, column = 2, columnspan=2, padx=5, pady=5)
         # Send command button
         self.linearMoveButton = Button(self.linearMoveFrame, text="Send ML", command=self.armController.prepMLCommand)
-        self.linearMoveButton.grid(row=0, column=3, columnspan=3, padx=5, pady=5)
+        self.linearMoveButton.grid(row=0, column=4, columnspan=2, padx=5, pady=5, sticky=E)
 
         # Coordinate labels and text boxes
         # Create them
@@ -440,7 +443,8 @@ class TkWindow(Tk):
         #Move to safe position button
         self.moveToSafeButton = Button(self.moveFrame, text="Move to Safe Position", command=self.armController.moveSafe, width=20)
         self.moveToSafeButton.grid(row=6, column=0, columnspan=6, padx=5, pady=5)
-
+        self.moveToHomeButton = Button(self.moveFrame, text="Move to Home Position", command=self.armController.moveHome, width=20)
+        self.moveToHomeButton.grid(row=7, column=0, columnspan=6, padx=5, pady=5)
         # ==========| Loop Frame |==========
         self.loopFrame = Frame(self.armTab, highlightthickness=2, highlightbackground="#000000")
         self.loopFrame.grid(row=0, column=3, padx=5, pady=5, sticky=W+E+N+S)
@@ -482,12 +486,17 @@ class TkWindow(Tk):
         self.yCurCoordOrigin.grid(row=0, column=3, padx=5, pady=5)
         self.zCurCoordOriginLabel.grid(row=0, column=4, padx=5, pady=5)
         self.zCurCoordOrigin.grid(row=0, column=5, padx=5, pady=5)
+        #Move to Origin
+        self.moveToOrigin = Button(self.originFrame, text="Move To Origin", command=self.armController.moveOrigin)
+        self.moveToOrigin.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky=W)
 
+        #Delta Origin
         self.deltaOriginLabel = Label(self.originFrame, text="Delta from Origin:")
-        self.deltaOriginLabel.grid(row=3, column=0, columnspan=6, padx=5, pady=5, sticky=W)
+        self.deltaOriginLabel.grid(row=4, column=0, columnspan=6, padx=5, pady=5, sticky=W)
+        
         #Delta coordinates
         self.originDeltaFrame = Frame(self.originFrame, highlightthickness=1, highlightbackground="#000000")
-        self.originDeltaFrame.grid(row=4, column=0, padx=5, pady=5)
+        self.originDeltaFrame.grid(row=5, column=0, padx=5, pady=5)
 
         self.xDeltaOriginLabel = Label(self.originDeltaFrame, text="ΔX:")
         self.xDeltaOrigin = Label(self.originDeltaFrame, text="xxx") # 'xxx' until value reported
