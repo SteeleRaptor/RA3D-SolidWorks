@@ -259,12 +259,18 @@ class ArmController:
         else:
             self.root.statusPrint("ML command not sent due to a value not being a number")
     def populateML(self):
-        self.root.xCoordEntry.config(text=self.x)
-        self.root.yCoordEntry.config(text=self.y)
-        self.root.zCoordEntry.config(text=self.z)
-        self.root.RxCoordEntry.config(text=self.Rx)
-        self.root.RyCoordEntry.config(text=self.Ry)
-        self.root.RzCoordEntry.config(text=self.Rz)
+        self.root.xCoordEntry.delete(0, 'end')
+        self.root.yCoordEntry.delete(0, 'end')
+        self.root.zCoordEntry.delete(0, 'end')
+        self.root.RxCoordEntry.delete(0, 'end')
+        self.root.RyCoordEntry.delete(0, 'end')
+        self.root.RzCoordEntry.delete(0, 'end')
+        self.root.xCoordEntry.insert(0,str(self.curX))
+        self.root.yCoordEntry.insert(0,str(self.curY))
+        self.root.zCoordEntry.insert(0,str(self.curZ))
+        self.root.RxCoordEntry.insert(0,str(self.curRx))
+        self.root.RyCoordEntry.insert(0,str(self.curRy))
+        self.root.RzCoordEntry.insert(0,str(self.curRz))
     def sendML(self, X, Y, Z, Rx, Ry, Rz):
         if self.awaitingMoveResponse:
             self.root.statusPrint("Cannot send ML command as currently awaiting response from a previous move command")
