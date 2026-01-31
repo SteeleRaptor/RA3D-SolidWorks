@@ -371,10 +371,10 @@ class TkWindow(Tk):
         self.linearMoveLabel = Label(self.linearMoveFrame, text="Linear Move:")
         self.linearMoveLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
         # Populate xyz button
-        self.getXYZButton = Button(self.linearMoveFrame, text="Get XYZ", command = self.armController.populateML)
+        self.getXYZButton = Button(self.linearMoveFrame, text="Get XYZ", command = self.armController.populateMJ)
         self.getXYZButton.grid(row=0, column = 2, columnspan=2, padx=5, pady=5)
         # Send command button
-        self.linearMoveButton = Button(self.linearMoveFrame, text="Send ML", command=self.armController.prepMLCommand)
+        self.linearMoveButton = Button(self.linearMoveFrame, text="Send MJ", command=self.armController.prepMJCommand)
         self.linearMoveButton.grid(row=0, column=4, columnspan=2, padx=5, pady=5, sticky=E)
 
         # Coordinate labels and text boxes
@@ -410,9 +410,12 @@ class TkWindow(Tk):
         self.jointMoveFrame.grid(row=1, column=0, padx=5, pady=5, sticky=W+E+N+S)
         self.jointMoveLabel = Label(self.jointMoveFrame, text="Joint Move:")
         self.jointMoveLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
+        # Get Joints
+        self.getJointsButton = Button(self.jointMoveFrame, text="Get Joints", command = self.armController.populateJoints)
+        self.getJointsButton.grid(row=0, column = 2, columnspan=2, padx=5, pady=5)
         # Send command button
         self.jointMoveButton = Button(self.jointMoveFrame, text="Send RJ", command=self.armController.prepRJCommand)
-        self.jointMoveButton.grid(row=0, column=3, columnspan=3, padx=5, pady=5)
+        self.jointMoveButton.grid(row=0, column=4, columnspan=3, padx=5, pady=5)
         # Joint labels and text boxes
         # Create them
         self.J1CoordLabel = Label(self.jointMoveFrame, text="J1:")
@@ -545,9 +548,11 @@ class TkWindow(Tk):
         # calibrationState
         self.armDebugCalStateLabel = Label(self.armDebugFrame, text="calibrationState = ")
         self.armDebugCalStateLabel.grid(row=3, column=0, padx=5, pady=5, sticky=W)
-        # ===| PrintController Variables |===
-
+        self.overrideCalibrationButton = Button(self.debugVarFrame,text="Override Calibration", command=self.armController.overrideCalibration)
+        self.overrideCalibrationButton.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky=W)
         # ==========| Terminal Frame |==========
+        # ===| PrintController Variables |===
+        
         self.termFrame = Frame(self.debugTab, bg="#00FFFF", highlightthickness=2, highlightbackground="#000000")
         self.termFrame.grid(row=0, column=1, padx=5, pady=5, sticky=W+E+N+S)
 
@@ -592,7 +597,8 @@ class TkWindow(Tk):
             self.armController.encoderTestUpdate()
         if self.armController.awaitingPosResponse:
             self.armController.requestPositionUpdate()
-
+        if self.printController.printing:
+            self.printController.printLoop()
         # ==========| PrintController |==========
 
 
