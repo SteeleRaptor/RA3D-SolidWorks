@@ -2,7 +2,7 @@ from tkinter import *
 from tkinter import filedialog
 import os
 import re
-
+from ArmController import Position, Origin
 class PrintController:
     def __init__(self, root):
         self.root = root
@@ -17,19 +17,17 @@ class PrintController:
         self.fileOpen = False
         self.printing = False
         self.printPaused = False
-
+        self.origin = root.armcontroller.origin
         # Parameters for printing coordinates
         #self.xBounds = [300, 500] # X Min & X Max
         #self.yBounds = [-100, 100] # Y Min & Y Max
         #self.zBounds = [100, 300] # Z Min & Z Max
         #self.xyCenter = [(self.xBounds[0] + self.xBounds[1]) / 2, (self.yBounds[0] + self.yBounds[1]) / 2]
         # Parameters used for saving the last used coordinate information
-        self.lastX = 0#self.xBounds[0]
-        self.lastY = 0#self.yBounds[1]
-        self.lastZ = 0#self.zBounds[0]
+        self.lastPos = Position(self.origin)
+        self.printPos = Position(self.origin)
         self.lastF = 0.0
         self.lastE = 0.0
-
         self.currentInstruction = 0
 
 
@@ -83,34 +81,31 @@ class PrintController:
         self.root.cancelPrintButton.config(state="normal")
 
     def startPrint(self):
-        self.originX = float(self.root.armController.originX)
-        self.originY = float(self.root.armController.originY)
-        self.originZ = float(self.root.armController.originZ)
-        self.lastX = self.originX
-        self.lastY = self.originY
-        self.lastZ = self.originZ
-        if not self.originX:
-            self.originSet = False
-        else:
-            self.originSet = True
+        if not self.origin.checkOriginSet():
+            print("Orign not set, print cancelled")
+            return
+     
+
         if self.printPaused == True and self.printing == True:
             self.printPaused = False
             return
 
         # When starting print, reset the "last*" parameters
+        self.lastPos = self.origin.copy
+        self.lastX = self.originX
+        self.lastY = self.originY
+        self.lastZ = self.originZ
         self.lastF = 0.0
         self.lastE = 0.0
-
+        if not self.printPaused:
+            self.currentInstruction = 0
         self.printing = True
-        self.currentInstruction = 0
 
     def stepPrint(self):
-        if not self.originX:
-            self.originSet = False
-        else:
-            self.originSet = True
-        if not self.originSet:
-            raise "Origin not set"
+        if not self.origin.checkOriginSet():
+            print("Cannot print Origin not set")
+            return
+        
         self.root.statusPrint("Stepping print")
         # Convert a line of gcode to teensy
         if self.currentInstruction > len(self.gcodeLines) - 1:
@@ -133,7 +128,6 @@ class PrintController:
     def pausePrint(self):
         self.printing = False
         self.printPaused = True
-
     def cancelPrint(self):
         self.currentInstruction=0
         pass
@@ -174,6 +168,7 @@ class PrintController:
             # If instruction DID contain a parameter, offset the value to put it in the build volume
             if x == None:
                 x = self.lastX
+                self.printPos.x = self.lastPos.x.copy
             else:
                 x = x + self.originX
                 self.lastX = x
@@ -204,7 +199,7 @@ class PrintController:
             # TODO: Might make a custom datatype for storing position data that can be used
             newLine = f"MLX{x}Y{y}Z{z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.root.armController.speed}Ac{self.root.armController.acceleration}Dc{self.root.armController.deceleration}Rm{self.root.armController.ramp}Rnd0WFLm000000Q0\n"
             #return newLine
-            return [x, y, z, Rx, Ry, Rz]
+            return [printPos]
 
     # This is the main function that will loop when printing a file
     def printLoop(self):
@@ -226,7 +221,24 @@ class PrintController:
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
         self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
-        
+    def startPrintBedCalibration(self):
+        self.bedCalibration = True
+        self.bedCalStep = 1
+        self.nextBedCalibration()
+    def nextBedCalibration(self):
+        if self.bedCalibration == True:
+            currentCorner = self.calibrationCorners[self.bedCalStep]
+            posStep = currentCorner.copy
+            posStep.z += 200
+            self.root.armController.sendMJ(posStep)
+            while self.root.armController.awaitingMovePosition:
+                self.root.armController.moveUpdate()
+            self.root.armController.sendMJ(posStep)
+            self.root.armController.sendMJ(posStep)
+            #Move To position
+            #End calibration
+            if self.bedCalStep == 4:
+                self.bedCalibration=False
 
 
 

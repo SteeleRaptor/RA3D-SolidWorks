@@ -41,14 +41,9 @@ class ArmController:
         self.curJ4 = None
         self.curJ5 = None
         self.curJ6 = None
-        self.curX = None
-        self.curY = None
-        self.curZ = None
-        self.curRx = None
-        self.curRy = None
-        self.curRz = None
         #Orign variables
         self.origin = Origin()
+        self.curPos = Position(self.origin)
         # Stores calibration offset values
         self.J1CalOffset = 0
         self.J2CalOffset = 0
@@ -187,10 +182,13 @@ class ArmController:
         J7Idx = response.find('P') # P value is angle of J7
         J8Idx = response.find('Q') # Q value is angle of J8
         J9Idx = response.find('R') # R value is angle of J9
-
         # Extract the actual values from the response
         # Joint angles
-        self.curJ1 = response[J1Idx+1:J2Idx].strip()
+        incomingJ1 = response[J1Idx+1:J2Idx].strip()
+        pattern = r"^-?(\d+(?:\.\d+)?)"
+        if re.match(pattern, incomingJ1):
+            print("Process Position Failed, not a number. Problem with Serial.")
+            return
         self.curJ2 = response[J2Idx+1:J3Idx].strip()
         self.curJ3 = response[J3Idx+1:J4Idx].strip()
         self.curJ4 = response[J4Idx+1:J5Idx].strip()
@@ -198,23 +196,23 @@ class ArmController:
         self.curJ6 = response[J6Idx+1:XPosIdx].strip()
 
         # XYZ Positions
-        self.curX = response[XPosIdx+1:YPosIdx].strip()
-        self.curY = response[YPosIdx+1:ZPosIdx].strip()
-        self.curZ = response[ZPosIdx+1:RzIdx].strip()
+        self.curPos.x = response[XPosIdx+1:YPosIdx].strip()
+        self.curPos.y = response[YPosIdx+1:ZPosIdx].strip()
+        self.curPos.z = response[ZPosIdx+1:RzIdx].strip()
 
         # RXYZ Angles
-        self.curRx = response[RxIdx+1:SpeedViolationIdx].strip()
-        self.curRy = response[RyIdx+1:RxIdx].strip()
-        self.curRz = response[RzIdx+1:RyIdx].strip()
+        self.curPos.Rx = response[RxIdx+1:SpeedViolationIdx].strip()
+        self.curPos.Ry = response[RyIdx+1:RxIdx].strip()
+        self.curPos.Rz = response[RzIdx+1:RyIdx].strip()
 
         # Display values on UI
         # XYZ
-        self.root.xCurCoord.config(text=self.curX)
-        self.root.yCurCoord.config(text=self.curY)
-        self.root.zCurCoord.config(text=self.curZ)
-        self.root.RxCurCoord.config(text=self.curRx)
-        self.root.RyCurCoord.config(text=self.curRy)
-        self.root.RzCurCoord.config(text=self.curRz)
+        self.root.xCurCoord.config(text=self.curPos.x)
+        self.root.yCurCoord.config(text=self.curPos.y)
+        self.root.zCurCoord.config(text=self.curPos.z)
+        self.root.RxCurCoord.config(text=self.curPos.Rx)
+        self.root.RyCurCoord.config(text=self.curPos.Ry)
+        self.root.RzCurCoord.config(text=self.curPos.Rz)
         jointColors=self.getJointColors(self.curJ1,self.curJ2,self.curJ3,self.curJ4,self.curJ5,self.curJ6)
         # Joint
         self.root.J1CurCoord.config(text=self.curJ1, color=jointColors[0])
@@ -313,12 +311,12 @@ class ArmController:
         self.root.RxCoordEntry.delete(0, 'end')
         self.root.RyCoordEntry.delete(0, 'end')
         self.root.RzCoordEntry.delete(0, 'end')
-        self.root.xCoordEntry.insert(0,str(self.curX))
-        self.root.yCoordEntry.insert(0,str(self.curY))
-        self.root.zCoordEntry.insert(0,str(self.curZ))
-        self.root.RxCoordEntry.insert(0,str(self.curRx))
-        self.root.RyCoordEntry.insert(0,str(self.curRy))
-        self.root.RzCoordEntry.insert(0,str(self.curRz))
+        self.root.xCoordEntry.insert(0,str(self.curPos.x))
+        self.root.yCoordEntry.insert(0,str(self.curPos.y))
+        self.root.zCoordEntry.insert(0,str(self.curPos.z))
+        self.root.RxCoordEntry.insert(0,str(self.curPos.Rx))
+        self.root.RyCoordEntry.insert(0,str(self.curPos.Ry))
+        self.root.RzCoordEntry.insert(0,str(self.curPos.Rz))
     def populateJoints(self):
         self.root.J1CoordEntry.delete(0, 'end')
         self.root.J2CoordEntry.delete(0, 'end')
@@ -326,12 +324,12 @@ class ArmController:
         self.root.J4CoordEntry.delete(0, 'end')
         self.root.J5CoordEntry.delete(0, 'end')
         self.root.J6CoordEntry.delete(0, 'end')
-        self.root.J1CoordEntry.insert(0,str(self.curX))
-        self.root.J2CoordEntry.insert(0,str(self.curY))
-        self.root.J3CoordEntry.insert(0,str(self.curZ))
-        self.root.J4CoordEntry.insert(0,str(self.curRx))
-        self.root.J5CoordEntry.insert(0,str(self.curRy))
-        self.root.J6CoordEntry.insert(0,str(self.curRz))
+        self.root.J1CoordEntry.insert(0,str(self.curJ1))
+        self.root.J2CoordEntry.insert(0,str(self.curJ2))
+        self.root.J3CoordEntry.insert(0,str(self.curJ3))
+        self.root.J4CoordEntry.insert(0,str(self.curJ4))
+        self.root.J5CoordEntry.insert(0,str(self.curJ5))
+        self.root.J6CoordEntry.insert(0,str(self.curJ6))
 
     def prepMLCommand(self):
         # Read the values from each entry box
@@ -642,25 +640,25 @@ class ArmController:
             return
         self.root.terminalPrint("Setting current position as origin...")
         self.requestPositionManual
-        self.originX = self.curX
-        self.originY = self.curY
-        self.originZ = self.curZ
-        self.root.xCurCoordOrigin.config(text=self.curX)
-        self.root.yCurCoordOrigin.config(text=self.curY)
-        self.root.zCurCoordOrigin.config(text=self.curZ)
-        self.orginSet = True
+        # TODO Add line to wait for response
+        while self.awaitingRequestPosition:
+            self.requestPositionUpdate()
+            delay(1)
+        self.origin.setOrigin(self.curPos)
+        self.root.xCurCoordOrigin.config(text=self.curPos.x)
+        self.root.yCurCoordOrigin.config(text=self.curPos.y)
+        self.root.zCurCoordOrigin.config(text=self.curPos.z)
+        
     def moveOrigin(self):
-        if self.originSet == True:
+        if self.origin.checkOriginSet():
             self.sendMJ(self.originX,self.originY,self.originZ,0,90,0)
         else:
             return
     def updateDeltaFromOrigin(self):
-        if self.originX is None or self.originY is None or self.originZ is None:
+        if not self.origin.checkOriginSet():
             self.root.statusPrint("Origin not set")
             return None, None, None
-        deltaX = round(float(self.curX) - float(self.originX),3)
-        deltaY = round(float(self.curY) - float(self.originY),3)
-        deltaZ = round(float(self.curZ) - float(self.originZ),3)
+        deltaX,deltaY,deltaZ = self.curPos.GetRelative
         self.root.xDeltaOrigin.config(text=deltaX)
         self.root.yDeltaOrigin.config(text=deltaY)
         self.root.zDeltaOrigin.config(text=deltaZ)
@@ -699,46 +697,71 @@ class ArmController:
 
 # --- Other Classes ---
 class Position:
-    def __init__(self, X, Y, Z, Rx, Ry, Rz, originObj):
-        self.X = X
-        self.Y = Y
-        self.Z = Z
+    def __init__(self, x, y, z, Rx, Ry, Rz, originObj):
+        self.x = x
+        self.y = y
+        self.z = z
         self.Rx = Rx
         self.Ry = Ry
         self.Rz = Rz
         self.origin = originObj
-
+    def __init__(self, originObj):
+        self.x = None
+        self.y = None
+        self.z = None
+        self.Rx = None
+        self.Ry = None
+        self.Rz = None
+        self.origin = originObj
     def GetAbsolute(self):
-        return [self.X, self.Y, self.Z, self.Rx, self.Ry, self.Rz]
+        return [self.x, self.y, self.z, self.Rx, self.Ry, self.Rz]
     
     def GetRelative(self):
-        relX = self.X - self.originX
-        relY = self.Y - self.originY
-        relZ = self.Z - self.originZ
-        return [relX, relY, relZ, self.Rx, self.Ry, self.Rz]
-    
-    def SetPosition(self, X, Y, Z, Rx, Ry, Rz):
-        self.X = X
-        self.Y = Y
-        self.Z = Z
+        if self.originSet:
+            relX = self.x - self.originX
+            relY = self.y - self.originY
+            relZ = self.z - self.originZ
+            return [relX, relY, relZ, self.Rx, self.Ry, self.Rz]
+        else:
+            return [None*6]
+    def SetRelative(self,relX,relY,relZ,Rx,Ry,Rz):
+        if self.originSet:
+            self.x = relX + self.origin.x
+            self.y = relY + self.origin.y
+            self.z = relZ + self.origin.z
+            self.Rx = Rx
+            self.Ry = Ry
+            self.Rz = Rz
+
+    def SetPosition(self, x, y, z, Rx, Ry, Rz):
+        self.x = x
+        self.y = y
+        self.z = z
         self.Rx = Rx
         self.Ry = Ry
         self.Rz = Rz
 
+class Joints:
+    def __init__(self):
+        pass
 class Origin:
-    def __init__(self, X, Y, Z):
-        self.X = X
-        self.Y = Y
-        self.Z = Z
+    def __init__(self, x, y, z):
+        self.x = float(x)
+        self.y = float(y)
+        self.z = float(z)
         self.originSet = True
     def __init__(self):
         self.originSet = False
     def getOrigin(self):
-        return [self.X, self.Y, self.Z]
-    def setOrigin(self, X, Y, Z):
-        self.X = X
-        self.Y = Y
-        self.Z = Z
+        return [self.x, self.y, self.z]
+    def setOrigin(self, position):
+        self.x = float(position.y)
+        self.y = float(position.y)
+        self.z = float(position.z)
+        self.originSet = True
+    def checkOrginSet(self):
+        return self.originSet
+    
 class MoveParameters:
     def __init__ (self,speed,acceleration,deceleration,ramp,loopMode):
         self.speed = speed
