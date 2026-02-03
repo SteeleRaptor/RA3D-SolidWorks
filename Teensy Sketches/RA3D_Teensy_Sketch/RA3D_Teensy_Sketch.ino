@@ -79,8 +79,8 @@ float J4encMult = 5;
 float J5encMult = 2.5;
 float J6encMult = 5;
 //reduce offset for higher precision
-int encOffset = 10;
-
+int encCollisionOffset = 50;
+int encoderCLTolerance = 2;
 //set encoder pins
 Encoder J1encPos(14, 15);
 Encoder J2encPos(17, 16);
@@ -189,7 +189,13 @@ int J7StepM = J7zeroStep;
 int J8StepM = J8zeroStep;
 int J9StepM = J9zeroStep;
 
-
+//Target step for closed loop control
+int J1TargetStep = 0;
+int J2TargetStep = 0;
+int J3TargetStep = 0;
+int J4TargetStep = 0;
+int J5TargetStep = 0;
+int J6TargetStep = 0;
 
 //degrees from limit switch to offset calibration
 float J1calBaseOff = -1;
@@ -1447,22 +1453,22 @@ void resetEncoders() {
 }
 //Only to be used for calibration
 void setEncoders() {
-      J1encPos.write(J1StepM * J1encMult);
-      J2encPos.write(J2StepM * J2encMult);
-      J3encPos.write(J3StepM * J3encMult);
-      J4encPos.write(J4StepM * J4encMult);
-      J5encPos.write(J5StepM * J5encMult);
-      J6encPos.write(J6StepM * J6encMult);
+  J1encPos.write(J1StepM * J1encMult);
+  J2encPos.write(J2StepM * J2encMult);
+  J3encPos.write(J3StepM * J3encMult);
+  J4encPos.write(J4StepM * J4encMult);
+  J5encPos.write(J5StepM * J5encMult);
+  J6encPos.write(J6StepM * J6encMult);
 }
 //Made by Justin Fauson
 //Sets Master step to encoder position
 void readEncoders() {
-      J1StepM = J1encPos.read() / J1encMult;
-      J2StepM = J2encPos.read() / J2encMult;
-      J3StepM = J3encPos.read() / J3encMult;
-      J4StepM = J4encPos.read() / J4encMult;
-      J5StepM = J5encPos.read() / J5encMult;
-      J6StepM = J6encPos.read() / J6encMult;
+  J1StepM = J1encPos.read() / J1encMult;
+  J2StepM = J2encPos.read() / J2encMult;
+  J3StepM = J3encPos.read() / J3encMult;
+  J4StepM = J4encPos.read() / J4encMult;
+  J5StepM = J5encPos.read() / J5encMult;
+  J6StepM = J6encPos.read() / J6encMult;
 }
 void checkEncoders() {
   //read encoders
@@ -1473,43 +1479,43 @@ void checkEncoders() {
   J5EncSteps = J5encPos.read() / J5encMult;
   J6EncSteps = J6encPos.read() / J6encMult;
 
-  if (abs((J1EncSteps - J1StepM)) >= encOffset) {
+  if (abs((J1EncSteps - J1StepM)) >= encCollisionOffset) {
     if (J1LoopMode == 0) {
       J1collisionTrue = 1;
       J1StepM = J1encPos.read() / J1encMult;
     }
   }
-  if (abs((J2EncSteps - J2StepM)) >= encOffset) {
+  if (abs((J2EncSteps - J2StepM)) >= encCollisionOffset) {
     if (J2LoopMode == 0) {
       J2collisionTrue = 1;
       J2StepM = J2encPos.read() / J2encMult;
     }
   }
-  if (abs((J3EncSteps - J3StepM)) >= encOffset) {
+  if (abs((J3EncSteps - J3StepM)) >= encCollisionOffset) {
     if (J3LoopMode == 0) {
       J3collisionTrue = 1;
       J3StepM = J3encPos.read() / J3encMult;
     }
   }
-  if (abs((J4EncSteps - J4StepM)) >= encOffset) {
+  if (abs((J4EncSteps - J4StepM)) >= encCollisionOffset) {
     if (J4LoopMode == 0) {
       J4collisionTrue = 1;
       J4StepM = J4encPos.read() / J4encMult;
     }
   }
-  if (abs((J5EncSteps - J5StepM)) >= encOffset) {
+  if (abs((J5EncSteps - J5StepM)) >= encCollisionOffset) {
     if (J5LoopMode == 0) {
       J5collisionTrue = 1;
       J5StepM = J5encPos.read() / J5encMult;
     }
   }
-  if (abs((J6EncSteps - J6StepM)) >= encOffset) {
+  if (abs((J6EncSteps - J6StepM)) >= encCollisionOffset) {
     if (J6LoopMode == 0) {
       J6collisionTrue = 1;
       J6StepM = J6encPos.read() / J6encMult;
     }
   }
-
+  //Single pass Closed Loop for skipped steps,
   TotalCollision = J1collisionTrue + J2collisionTrue + J3collisionTrue + J4collisionTrue + J5collisionTrue + J6collisionTrue;
   if (TotalCollision > 0) {
     flag = "EC" + String(J1collisionTrue) + String(J2collisionTrue) + String(J3collisionTrue) + String(J4collisionTrue) + String(J5collisionTrue) + String(J6collisionTrue);
@@ -1573,6 +1579,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
   float delay;
 
   // DETERMINE STEPS
+  //Acceleration is a percentage of the highest step?
   float ACCStep = HighStep * (ACCspd / 100.0f);
   float DCCStep = HighStep * (DCCspd / 100.0f);
   float NORStep = HighStep - ACCStep - DCCStep;
@@ -1585,7 +1592,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
     speedSP = ((lineDist / SpeedVal) * 1000000.0f) * 1.0f;
   }
 
-  // fixed ramp factors (start/end slower than cruise)
+  // fixed ramp factors (start/end slower than cruise), I think this keep acceleration positive
   if(ACCramp < 10){
     ACCramp = 10;
   }
@@ -1636,8 +1643,10 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
   unsigned long moveStart = micros();
   int highStepCur = 0;
 
+  //driving loop
   while ((cur[0] < steps[0] || cur[1] < steps[1] || cur[2] < steps[2] || cur[3] < steps[3] || cur[4] < steps[4] || cur[5] < steps[5] || cur[6] < steps[6] || cur[7] < steps[7] || cur[8] < steps[8]) && estopActive == false) {
-
+    
+    //Adjust delay to change speed
     ////DELAY CALC/////
     if (highStepCur <= ACCStep) {
       // During accel, move from startDelay down to cruise
@@ -1651,8 +1660,9 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
 
     float distDelay = 30;
     float disDelayCur = 0;
-
+    //for each J?
     for (int i = 0; i < 9; i++) {
+      //if step hasn't been reached
       if (cur[i] < steps[i]) {
         PE[i] = (HighStep / steps[i]);
         LO_1[i] = (HighStep - (steps[i] * PE[i]));
@@ -1706,6 +1716,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
     if (delay < minSpeedDelay) {
       delay = minSpeedDelay;
     }
+    //delay between moves for speed control
     delayMicroseconds(delay);
   }
   unsigned long moveEnd = micros();
@@ -2412,7 +2423,118 @@ void setup() {
   splineTrue = false;
   splineEndReceived = false;
 }
+void closedLoop(){
 
+  if J1TargetStep = 0{
+    return
+  }
+  //read latest position for accuracy
+  readEncoders()
+  
+  //calc delta from current to destination
+  int J1stepDif = J1StepM - J1TargetStep;
+  int J2stepDif = J2StepM - J1TargetStep;
+  int J3stepDif = J3StepM - J1TargetStep;
+  int J4stepDif = J4StepM - J1TargetStep;
+  int J5stepDif = J5StepM - J1TargetStep;
+  int J6stepDif = J6StepM - J1TargetStep;
+  //External axeses aren't part of the closed loop like the extruder control
+  int J7stepDif = 0;
+  int J8stepDif = 0;
+  int J9stepDif = 0;
+
+  //check if motors are at target position within a tolerance
+  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
+    J1StepDiff = 0;
+    int J1Move = 1;
+  }
+  if abs(J2encPos.read()/J2encMult-J2StepM) < encoderCLTolerance{
+    J1StepDiff = 0;
+    int J1Move = 1;
+  }
+  if abs(J1encPos.read()/J3encMult-J13tepM) < encoderCLTolerance{
+    J1StepDiff = 0;
+    int J1Move = 1;
+  }
+  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
+    J1StepDiff = 0;
+    int J1Move = 1;
+  }
+  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
+    J1StepDiff = 0;
+    int J1Move = 1;
+  }
+  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
+    J1StepDiff = 0;
+    int J1Move = 1;
+  }
+  //determine motor directions
+  J1dir = (J1stepDif <= 0) ? 1 : 0;
+  J2dir = (J2stepDif <= 0) ? 1 : 0;
+  J3dir = (J3stepDif <= 0) ? 1 : 0;
+  J4dir = (J4stepDif <= 0) ? 1 : 0;
+  J5dir = (J5stepDif <= 0) ? 1 : 0;
+  J6dir = (J6stepDif <= 0) ? 1 : 0;
+  J7dir = (J7stepDif <= 0) ? 1 : 0;
+  J8dir = (J8stepDif <= 0) ? 1 : 0;
+  J9dir = (J9stepDif <= 0) ? 1 : 0;
+
+
+  //determine if requested position is within axis limits
+  if ((J1dir == 1 and (J1StepM + J1stepDif > J1StepLim)) or (J1dir == 0 and (J1StepM - J1stepDif < 0))) {
+    J1axisFault = 1;
+  }
+  if ((J2dir == 1 and (J2StepM + J2stepDif > J2StepLim)) or (J2dir == 0 and (J2StepM - J2stepDif < 0))) {
+    J2axisFault = 1;
+  }
+  if ((J3dir == 1 and (J3StepM + J3stepDif > J3StepLim)) or (J3dir == 0 and (J3StepM - J3stepDif < 0))) {
+    J3axisFault = 1;
+  }
+  if ((J4dir == 1 and (J4StepM + J4stepDif > J4StepLim)) or (J4dir == 0 and (J4StepM - J4stepDif < 0))) {
+    J4axisFault = 1;
+  }
+  if ((J5dir == 1 and (J5StepM + J5stepDif > J5StepLim)) or (J5dir == 0 and (J5StepM - J5stepDif < 0))) {
+    J5axisFault = 1;
+  }
+  if ((J6dir == 1 and (J6StepM + J6stepDif > J6StepLim)) or (J6dir == 0 and (J6StepM - J6stepDif < 0))) {
+    J6axisFault = 1;
+  }
+  if ((J7dir == 1 and (J7StepM + J7stepDif > J7StepLim)) or (J7dir == 0 and (J7StepM - J7stepDif < 0))) {
+    J7axisFault = 1;
+  }
+  if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
+    J8axisFault = 1;
+  }
+  if ((J9dir == 1 and (J9StepM + J9stepDif > J9StepLim)) or (J9dir == 0 and (J9StepM - J9stepDif < 0))) {
+    J9axisFault = 1;
+  }
+  TotalAxisFault = J1axisFault + J2axisFault + J3axisFault + J4axisFault + J5axisFault + J6axisFault + J7axisFault + J8axisFault + J9axisFault;
+
+  float SpeedTypey = 
+  float SpeedVal =
+  float ACCspd
+  float DCCspd
+  float ACCramp
+  //send move command if no axis limit error and no collision
+  if (TotalAxisFault == 0 && KinematicError == 0 && TotalCollision == 0) {
+    resetEncoders();//reset collision detecion
+    //drive motors if any motor has to move
+    if J1Move || J2Move || J3Move || J4Move || J5Move || J6Move{
+      driveMotorsJ(abs(J1stepDif), abs(J2stepDif), abs(J3stepDif), abs(J4stepDif), abs(J5stepDif), abs(J6stepDif), J7stepDif, J8stepDif, J9stepDif, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
+    }
+    checkEncoders();//check for collision
+    
+  } else if (KinematicError == 1) {
+    Alarm = "ER";
+    delay(5);
+    Serial.println(Alarm);
+  } else {
+    Alarm = "EL" + String(J1axisFault) + String(J2axisFault) + String(J3axisFault) + String(J4axisFault) + String(J5axisFault) + String(J6axisFault) + String(J7axisFault) + String(J8axisFault) + String(J9axisFault);
+    delay(5);
+    Serial.println(Alarm);
+  }
+  sendRobotPos();//send robot position
+}
 
 void loop() {
 
@@ -2421,6 +2543,9 @@ void loop() {
 
   if (splineEndReceived == false) {
     processSerial();
+  }
+  if closedLoopTrue{
+    closedLoop()
   }
   //dont start unless at least one command has been read in
   if (cmdBuffer1 != "") {
@@ -3477,15 +3602,191 @@ void loop() {
       sendRobotPos();
       inData = "";  // Clear recieved buffer
     }
+    //-----COMMAND TO CALIBRATE EXTRA---------------------------------------------------
+    //-----------------------------------------------------------------------
+    //Meant for after calibration to adjust calibration without touching limit switches
+    if (function == "LE") {
+      int J1start = inData.indexOf('A');
+      int J2start = inData.indexOf('B');
+      int J3start = inData.indexOf('C');
+      int J4start = inData.indexOf('D');
+      int J5start = inData.indexOf('E');
+      int J6start = inData.indexOf('F');
+      int J7start = inData.indexOf('G');
+      int J8start = inData.indexOf('H');
+      int J9start = inData.indexOf('I');
+
+      int J1calstart = inData.indexOf('J');
+      int J2calstart = inData.indexOf('K');
+      int J3calstart = inData.indexOf('L');
+      int J4calstart = inData.indexOf('M');
+      int J5calstart = inData.indexOf('N');
+      int J6calstart = inData.indexOf('O');
+      int J7calstart = inData.indexOf('P');
+      int J8calstart = inData.indexOf('Q');
+      int J9calstart = inData.indexOf('R');
 
 
 
+      ///Which joints to calibrate
+      int J1req = inData.substring(J1start + 1, J2start).toInt();
+      int J2req = inData.substring(J2start + 1, J3start).toInt();
+      int J3req = inData.substring(J3start + 1, J4start).toInt();
+      int J4req = inData.substring(J4start + 1, J5start).toInt();
+      int J5req = inData.substring(J5start + 1, J6start).toInt();
+      int J6req = inData.substring(J6start + 1, J7start).toInt();
+      int J7req = inData.substring(J7start + 1, J8start).toInt();
+      int J8req = inData.substring(J8start + 1, J9start).toInt();
+      int J9req = inData.substring(J9start + 1, J1calstart).toInt();
 
 
 
+      float J1calOffExtra = inData.substring(J1calstart + 1, J2calstart).toFloat();
+      float J2calOffExtra = inData.substring(J2calstart + 1, J3calstart).toFloat();
+      float J3calOffExtra = inData.substring(J3calstart + 1, J4calstart).toFloat();
+      float J4calOffExtra = inData.substring(J4calstart + 1, J5calstart).toFloat();
+      float J5calOffExtra = inData.substring(J5calstart + 1, J6calstart).toFloat();
+      float J6calOffExtra = inData.substring(J6calstart + 1, J7calstart).toFloat();
+      float J7calOffExtra = inData.substring(J7calstart + 1, J8calstart).toFloat();
+      float J8calOffExtra = inData.substring(J8calstart + 1, J9calstart).toFloat();
+      float J9calOffExtra = inData.substring(J9calstart + 1).toFloat();
+      /
+      ///
+      int J1Step = 0;
+      int J2Step = 0;
+      int J3Step = 0;
+      int J4Step = 0;
+      int J5Step = 0;
+      int J6Step = 0;
+      int J7Step = 0;
+      int J8Step = 0;
+      int J9Step = 0;
+      ///
+      int J1stepCen = 0;
+      int J2stepCen = 0;
+      int J3stepCen = 0;
+      int J4stepCen = 0;
+      int J5stepCen = 0;
+      int J5step90 = 0;
+      int J6stepCen = 0;
+      int J7stepCen = 0;
+      int J8stepCen = 0;
+      int J9stepCen = 0;
+      ///
+      int J1dir;
+      int J2dir;
+      int J3dir;
+      int J4dir;
+      int J5dir;
+      int J6dir;
+      int J7dir;
+      int J8dir;
+      int J9dir;
 
+      int Jreq[9] = { J1req, J2req, J3req, J4req, J5req, J6req, J7req, J8req, J9req };
+      int JStepLim[9] = { J1StepLim, J2StepLim, J3StepLim, J4StepLim, J5StepLim, J6StepLim, J7StepLim, J8StepLim, J9StepLim };
+      int JcalPin[9] = { J1calPin, J2calPin, J3calPin, J4calPin, J5calPin, J6calPin, J7calPin, J8calPin, J9calPin };
+      int JStep[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
+      //Limits switches are NOT used
 
+      //set master steps to be ajusted by offset
+      //may need to inverse the sign for this
+      if (J1req == 1) {
+        J1StepM = J1StepM + J1calOffExtra*J1StepDeg
+      }
+      if (J2req == 1) {
+        J2StepM = J2StepM + J2calOffExtra*J2StepDeg
+      }
+      if (J3req == 1) {
+        J3StepM = J3StepM + J3calOffExtra*J3StepDeg
+      }
+      if (J4req == 1) {
+        J4StepM = J4StepM + J4calOffExtra*J4StepDeg
+      }
+      if (J5req == 1) {
+        J5StepM = J5StepM + J5calOffExtra*J5StepDeg
+      }
+      if (J6req == 1) {
+        J6StepM = J6StepM + J6calOffExtra*J6StepDeg
+      }
+      if (J7req == 1) {
+        J7StepM = J7StepM + J7calOffExtra*J7StepDeg
+      }
+      if (J8req == 1) {
+        J8StepM = J8StepM + J8calOffExtra*J8StepDeg
+      }
+      if (J9req == 1) {
+        J9StepM = J9StepM + J9calOffExtra*J9StepDeg
+      }
+
+      //Invert Direction
+      /// J1 ///
+      if (J1CalDir) {
+        J1dir = 0;
+      } else {
+        J1dir = 1;
+      }
+      /// J2 ///
+      if (J2CalDir) {
+        J2dir = 0;
+      } else {
+        J2dir = 1;
+      }
+      /// J3 ///
+      if (J3CalDir) {
+        J3dir = 0;
+      } else {
+        J3dir = 1;
+      }
+      /// J4 ///
+      if (J4CalDir) {
+        J4dir = 0;
+      } else {
+        J4dir = 1;
+      }
+      /// J5 ///
+      if (J5CalDir) {
+        J5dir = 0;
+      } else {
+        J5dir = 1;
+      }
+      /// J6 ///
+      if (J6CalDir) {
+        J6dir = 0;
+      } else {
+        J6dir = 1;
+      }
+      /// J7 ///
+      if (J7CalDir) {
+        J7dir = 0;
+      } else {
+        J7dir = 1;
+      }
+      /// J8 ///
+      if (J8CalDir) {
+        J8dir = 0;
+      } else {
+        J8dir = 1;
+      }
+      /// J9 ///
+      if (J9CalDir) {
+        J9dir = 0;
+      } else {
+        J9dir = 1;
+      }
+
+      float ACCspd = 10;
+      float DCCspd = 10;
+      String SpeedType = "p";
+      float SpeedVal = 50;
+      float ACCramp = 50;
+      setEncoders();
+      //Drive by amount changed
+      driveMotorsJ(J1calOffExtra, J2calOffExtra, J3calOffExtra, J4calOffExtra, J5calOffExtra, J6calOffExtra, J7calOffExtra, J8calOffExtra, J9calOffExtra, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
+      sendRobotPos();
+      inData = "";  // Clear recieved buffer
+    }
 
 
     //----- LIVE CARTESIAN JOG  ---------------------------------------------------
@@ -4634,6 +4935,7 @@ void loop() {
       int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
       int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
       int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
+      J1TargetStep = J1futStepM;
       if (closedLoopTrue){
         readEncoders();
       }
