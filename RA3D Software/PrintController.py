@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import filedialog
-import os, re, copy
+import os, re, copy, threading
 from ArmController import Position, Origin, MoveCommand,MoveParameters
 class PrintController:
     def __init__(self, root):
@@ -12,11 +12,11 @@ class PrintController:
         self.selectedFilepath = None
         self.gcodeLines = []
         self.teensyLines = []
-        self.originSet = False
         self.fileOpen = False
         self.printing = False
         self.printPaused = False
         self.origin = root.armController.origin
+        self.calibrationCorners = [Position(430,40,145,0,90,0,None),Position(470,40,145,0,90,0,None),Position(470,-40,145,0,90,0,None),Position(430,-40,145,0,90,0,None)]
         # Parameters for printing coordinates
         #self.xBounds = [300, 500] # X Min & X Max
         #self.yBounds = [-100, 100] # Y Min & Y Max
@@ -83,14 +83,14 @@ class PrintController:
         if not self.origin.checkOriginSet():
             print("Orign not set, print cancelled")
             return
-     
+        
 
         if self.printPaused == True and self.printing == True:
             self.printPaused = False
             return
 
         # When starting print, reset the "last*" parameters
-        self.origin = self.root.armController.origin
+        self.syncOrigin()
         print(self.origin.z, "test2")
         self.printPos.origin = self.origin
         self.lastPos = Position(self.origin.x,self.origin.y,self.origin.z,0,90,0,self.origin)
@@ -212,24 +212,44 @@ class PrintController:
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
         self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+    def syncOrigin(self):
+        self.origin = self.root.armController.origin
     def startPrintBedCalibration(self):
+        if self.origin.originSet == False or self.origin == None:
+            print("Origin not set, cannot begin leveling")
+            return
         self.bedCalibration = True
         self.bedCalStep = 1
+        self.syncOrigin()
         self.nextBedCalibration()
     def nextBedCalibration(self):
         if self.bedCalibration == True:
-            currentCorner = self.calibrationCorners[self.bedCalStep]
-            posStep = copy.deepcopy(currentCorner)
-            posStep.z += 200
-            self.root.armController.sendMJ(posStep)
-            while self.root.armController.awaitingMovePosition:
-                self.root.armController.moveUpdate()
-            self.root.armController.sendMJ(posStep)
-            self.root.armController.sendMJ(posStep)
-            #Move To position
-            #End calibration
-            if self.bedCalStep == 4:
-                self.bedCalibration=False
+            bedCalibrationThread = threading.Thread(target=self.bedCalibrationStep)
+            bedCalibrationThread.start()
+    def bedCalibrationStep(self):
+        currentCornerPos = self.calibrationCorners[self.bedCalStep]
+        self.root.cornerLabel.config(text=f"Current Corner: {self.bedCalStep}")
+        posStep = copy.deepcopy(currentCornerPos)
+        posStep.z += 100
+        point =posStep.GetAbsolute()
+        self.root.armController.sendMJ(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        while self.root.armController.awaitingMoveResponse:
+            self.root.armController.moveUpdate()
+        point =posStep.GetAbsolute()
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        posStep.z +- 50
+        while self.root.armController.awaitingMoveResponse:
+            self.root.armController.moveUpdate()
+        point = currentCornerPos.GetAbsolute()
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        while self.root.armController.awaitingMoveResponse:
+            self.root.armController.moveUpdate()
+        self.bedCalStep += 1
+        #Move To position
+        #End calibration
+        if self.bedCalStep == 4:
+            self.bedCalibration=False
+            self.root.armController.moveHome()
 
 
 

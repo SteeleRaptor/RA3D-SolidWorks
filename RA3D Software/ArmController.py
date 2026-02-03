@@ -27,7 +27,7 @@ class ArmController:
         self.calJStage2 = [0, 0, 0, 1, 1, 1] # J4, J5, & J6 calibration in Stage 2
 
         # Speed parameters used for movement commands
-        self.defaultMoveParameters = MoveParameters(25,15,15,80,0)
+        self.defaultMoveParameters = MoveParameters(50,10,10,30,0,'m')
         #J Limits:
         self.J1Limits = [-170,170]
         self.J2Limits = [-42,90]
@@ -315,6 +315,7 @@ class ArmController:
             return
         # Send the serial command
         self.serialController.sendSerial(str(command))
+        self.awaitingMoveResponse = True # Set the awaiting move response flag 
     def populateMJ(self):
         self.root.xCoordEntry.delete(0, 'end')
         self.root.yCoordEntry.delete(0, 'end')
@@ -400,6 +401,7 @@ class ArmController:
             return
         # Send the serial command
         self.serialController.sendSerial(str(command))
+        self.awaitingMoveResponse = True # Set the awaiting move response flag 
     def reset(self):
         self.awaitingMoveResponse = False
         self.serialController.waitingForResponse = False
@@ -654,15 +656,14 @@ class ArmController:
             return
         self.root.terminalPrint("Setting current position as origin...")
         self.requestPositionManual
-        # TODO Add line to wait for response
-        while self.awaitingPosResponse:
-            self.requestPositionUpdate()
-            time.delay(1)
+        self.waitForResponse()
         self.origin.setOrigin(self.curPos)
         self.root.xCurCoordOrigin.config(text=self.curPos.x)
         self.root.yCurCoordOrigin.config(text=self.curPos.y)
         self.root.zCurCoordOrigin.config(text=self.curPos.z)
-        
+    def waitForResponse(self):
+        while self.awaitingPosResponse:
+            time.delay(0.05)
     def moveOrigin(self):
         if self.origin.checkOriginSet():
             self.sendMJ(self.originX,self.originY,self.originZ,0,90,0)
@@ -772,12 +773,13 @@ class Origin:
         return self.originSet
     
 class MoveParameters:
-    def __init__ (self,speed,acceleration,deceleration,ramp,loopMode):
+    def __init__ (self,speed,acceleration,deceleration,ramp,loopMode,speedType):
         self.speed = speed
         self.acceleration = acceleration
         self.deceleration = deceleration
         self.ramp = ramp
         self.loopMode = loopMode
+        self.speedType = speedType
     def setLoopMode(self,loopMode):
         self.loopMode = loopMode
     def getLoopMode(self):
@@ -806,10 +808,10 @@ class MoveCommand:
     def __str__(self):
         command = "Error"
         if self.type=="ML":
-            command = f"MLX{self.A}Y{self.B}Z{self.C}Rz{self.D}Ry{self.E}Rx{self.F}J70.00J80.00J90.00Sp{self.moveParameters.speed}Ac{self.moveParameters.acceleration}Dc{self.moveParameters.deceleration}Rm{self.moveParameters.ramp}Rnd0WFLm{self.moveParameters.loopMode*6}Q0\n"
+            command = f"MLX{self.A}Y{self.B}Z{self.C}Rz{self.D}Ry{self.E}Rx{self.F}J70.00J80.00J90.00S{self.moveParameters.speedType}{self.moveParameters.speed}Ac{self.moveParameters.acceleration}Dc{self.moveParameters.deceleration}Rm{self.moveParameters.ramp}Rnd0WFLm{self.moveParameters.loopMode*6}Q0\n"
         elif self.type=="MJ":
-            command = f"MJX{self.A}Y{self.B}Z{self.C}Rz{self.D}Ry{self.E}Rx{self.F}J70.00J80.00J90.00Sp{self.moveParameters.speed}Ac{self.moveParameters.acceleration}Dc{self.moveParameters.deceleration}Rm{self.moveParameters.ramp}Rnd0WFLm{self.moveParameters.loopMode*6}Q0\n"
+            command = f"MJX{self.A}Y{self.B}Z{self.C}Rz{self.D}Ry{self.E}Rx{self.F}J70.00J80.00J90.00S{self.moveParameters.speedType}{self.moveParameters.speed}Ac{self.moveParameters.acceleration}Dc{self.moveParameters.deceleration}Rm{self.moveParameters.ramp}Rnd0WFLm{self.moveParameters.loopMode*6}Q0\n"
         elif self.type=="RJ":
-            command = f"RJA{self.A}B{self.B}C{self.C}D{self.D}E{self.E}F{self.F}J70.00J80.00J90.00Sp{self.moveParameters.speed}Ac{self.moveParameters.acceleration}Dc{self.moveParameters.deceleration}Rm{self.moveParameters.ramp}WNLm{self.moveParameters.loopMode*6}\n"
+            command = f"RJA{self.A}B{self.B}C{self.C}D{self.D}E{self.E}F{self.F}J70.00J80.00J90.00S{self.moveParameters.speedType}{self.moveParameters.speed}Ac{self.moveParameters.acceleration}Dc{self.moveParameters.deceleration}Rm{self.moveParameters.ramp}WNLm{self.moveParameters.loopMode*6}\n"
         return command
     

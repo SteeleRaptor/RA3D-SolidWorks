@@ -67,7 +67,7 @@ class SerialController:
             self.responseQueue = queue.Queue()
             self.serialThread = threading.Thread(target=self.serialReader, daemon=True)
             self.serialThread.start()
-            self.checkResponseQueue()
+            
         except SerialException:
             self.root.statusPrint(f"Failed to open port: {port}")
 
@@ -90,6 +90,7 @@ class SerialController:
                     self.responseQueue.put(data)
             else:
                 time.sleep(0.05)
+            self.checkResponseQueue()
     
     def checkResponseQueue(self):
         # Check if there is anything in the response queue
@@ -103,7 +104,6 @@ class SerialController:
                     break
         except queue.Empty:
             pass
-        self.root.after(100, self.checkResponseQueue)
 
     # Returns the last response received
     def getLastResponse(self):

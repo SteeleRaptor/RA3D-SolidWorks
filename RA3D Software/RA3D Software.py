@@ -1,5 +1,6 @@
 from tkinter import *
 import tkinter.ttk as ttk
+import threading
 from datetime import datetime
 
 from SerialController import SerialController
@@ -34,8 +35,8 @@ class TkWindow(Tk):
         self.root.terminalPrint("GUI created")
         self.serialController.refreshCOMPorts()
         # Set up a call to the update function after updateDelay milliseconds
-        self.after(self.updateDelay, self.update)
-        
+        updateThread = threading.Thread(target=self.update)
+        updateThread.start()
 
     # Creates the interface tabs
     def createTabs(self):
@@ -124,6 +125,17 @@ class TkWindow(Tk):
         self.textScroll.config(command=self.textBox.yview)
         self.textBox.grid(row=2, column=0, columnspan=1, padx=(5,0), pady=5)
         self.textScroll.grid(row=2, column=1, padx=(0, 5), pady=5, sticky=N+S)
+        # ==========| Bed Calibration Frame | =========
+        self.bedCalibrationFrame = Frame(self.printTab, highlightthickness=2, highlightbackground="#000000")
+        self.bedCalibrationFrame.grid(row=0, column=2, padx=5, pady=5, sticky=W+E+N+S)
+        self.bedCalibrationLabel = Label(self.bedCalibrationFrame, text= "Bed Leveling")
+        self.bedCalibrationLabel.grid(row=0, column=0, padx=5, pady=5, sticky=W)
+        self.startLevel = Button(self.bedCalibrationFrame, text="Start Level", width=10, command=self.printController.startPrintBedCalibration)
+        self.startLevel.grid(row=1, column=0, padx=5, pady=5, sticky=W)
+        self.nextLevel = Button(self.bedCalibrationFrame, text= "Next Corner", width=10, command=self.printController.nextBedCalibration)
+        self.nextLevel.grid(row=2, column=0, padx=5, pady=5, sticky=W)
+        self.cornerLabel = Label(self.bedCalibrationFrame, text="Current corner: N/A")
+        self.cornerLabel.grid(row=2, column=1, padx=5, pady=5, sticky=W)
 
     def fillArmTab(self):
         # ==========| Serial Frame |==========
@@ -581,6 +593,7 @@ class TkWindow(Tk):
     def fillSettingsTab(self):
         # Temporary text to inform user that there is nothing here yet
         Label(self.settingsTab, text="Nothing to see here at the moment (WIP)").pack(fill="both", expand=True)
+        # TODO Add settings for print control speed, acceleration...
        
     def update(self):
         self.updateDebugVars() # Update the debug tab variables
