@@ -232,8 +232,8 @@ float J9steps;
 
 float lineDist;
 
-String WristCon;
-int Quadrant;
+String WristCon;//Does nothing
+int Quadrant; // Does nothing
 
 unsigned long J1DebounceTime = 0;
 unsigned long J2DebounceTime = 0;
@@ -1596,6 +1596,8 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
   if(ACCramp < 10){
     ACCramp = 10;
   }
+  //ramp seems to make the arm move slower at first, and then accelerate faster to cruising speed
+  //so with a ramp of 10 or lower, acceleration is useless
   const float k_acc = ACCramp / 10;
   const float k_dec = ACCramp / 10;
 
@@ -2911,6 +2913,9 @@ void loop() {
 
       resetEncoders();
       driveMotorsJ(abs(J1stepDif), abs(J2stepDif), abs(J3stepDif), abs(J4stepDif), abs(J5stepDif), abs(J6stepDif), abs(J7stepDif), abs(J8stepDif), abs(J9stepDif), J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
+      /*if drive == "G"{
+        driveMotorsG
+      }*/
       checkEncoders();
       sendRobotPos();
       delay(5);
