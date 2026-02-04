@@ -1549,7 +1549,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
   int stepMonitors[9] = { J1StepM, J2StepM, J3StepM, J4StepM, J5StepM, J6StepM, J7StepM, J8StepM, J9StepM };
 
   int HighStep = steps[0];
-  int Jactive = 0;
+  int Jactive = 0;//How many motors are moving
 
   // FIND HIGHEST STEP
   for (int i = 1; i < 9; i++) {
@@ -1649,6 +1649,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
   while ((cur[0] < steps[0] || cur[1] < steps[1] || cur[2] < steps[2] || cur[3] < steps[3] || cur[4] < steps[4] || cur[5] < steps[5] || cur[6] < steps[6] || cur[7] < steps[7] || cur[8] < steps[8]) && estopActive == false) {
     
     //Adjust delay to change speed
+    //Determine whether to accelerate, decellerate or cruise
     ////DELAY CALC/////
     if (highStepCur <= ACCStep) {
       // During accel, move from startDelay down to cruise
@@ -1662,12 +1663,19 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
 
     float distDelay = 30;
     float disDelayCur = 0;
-    //for each J?
+    //for each J
     for (int i = 0; i < 9; i++) {
+
       //if step hasn't been reached
       if (cur[i] < steps[i]) {
+        //Not sure what all this does, but it determines which pins to turn on
+        //This code spreads step pulses over time so multiple motors with different step counts move
+        // moothly and finish at the same time, using layered integer dividers instead of floating-point math.
+        //Primay divider
         PE[i] = (HighStep / steps[i]);
+        //Leftover
         LO_1[i] = (HighStep - (steps[i] * PE[i]));
+        //Spacing
         SE_1[i] = (LO_1[i] > 0) ? (HighStep / LO_1[i]) : 0;
         LO_2[i] = (SE_1[i] > 0) ? (HighStep - ((steps[i] * PE[i]) + ((steps[i] * PE[i]) / SE_1[i]))) : 0;
         SE_2[i] = (LO_2[i] > 0) ? (HighStep / LO_2[i]) : 0;
@@ -1689,6 +1697,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
             if (PEcur[i] == PE[i]) {
               cur[i]++;
               PEcur[i] = 0;
+              //set voltage
               digitalWrite(stepPins[i], LOW);
               delayMicroseconds(distDelay);
               disDelayCur += distDelay;
@@ -1710,6 +1719,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
 
     // Increment current step
     highStepCur++;
+    //set all pins to high voltage
     for (int i = 0; i < 9; i++) {
       digitalWrite(stepPins[i], HIGH);
     }
