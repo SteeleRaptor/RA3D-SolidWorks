@@ -25,7 +25,7 @@ class PrintController:
         # Parameters used for saving the last used coordinate information
         self.lastPos = Position(None,None,None,None,None,None,self.origin)
         self.printPos = Position(None,None,None,None,None,None,self.origin)
-        self.printParemeters = MoveParameters(10,5,5,15,0,"m") #10mm/s print speed
+        self.printParemeters = MoveParameters(20,5,5,15,0,"m") #10mm/s print speed
         self.lastF = 0.0
         self.lastE = 0.0
         self.currentInstruction = 0
@@ -230,27 +230,27 @@ class PrintController:
             bedCalibrationThread = threading.Thread(target=self.bedCalibrationStep)
             bedCalibrationThread.start()
     def bedCalibrationStep(self):
-        currentCornerPos = self.calibrationCorners[self.bedCalStep]
+        currentCornerPos = self.calibrationCorners[self.bedCalStep-1]
         self.root.cornerLabel.config(text=f"Current Corner: {self.bedCalStep}")
         posStep = copy.deepcopy(currentCornerPos)
         posStep.z += 100
         point =posStep.GetAbsolute()
-        self.root.armController.sendMJ(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],MoveParameters=self.printParemeters)
+        self.root.armController.sendMJ(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],moveParameters=self.printParemeters)
         while self.root.armController.awaitingMoveResponse:
             self.root.armController.moveUpdate()
         point =posStep.GetAbsolute()
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],MoveParameters=self.printParemeters)
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],moveParameters=self.printParemeters)
         posStep.z +- 50
         while self.root.armController.awaitingMoveResponse:
             self.root.armController.moveUpdate()
         point = currentCornerPos.GetAbsolute()
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],MoveParameters=self.printParemeters)
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],moveParameters=self.printParemeters)
         while self.root.armController.awaitingMoveResponse:
             self.root.armController.moveUpdate()
         self.bedCalStep += 1
         #Move To position
         #End calibration
-        if self.bedCalStep == 4:
+        if self.bedCalStep == 5: #Goes to 5 after 4 is comleted
             self.bedCalibration=False
             self.root.armController.moveHome()
 

@@ -390,6 +390,8 @@ class TkWindow(Tk):
         # Send command button
         self.linearMoveButton = Button(self.linearMoveFrame, text="Send MJ", command=self.armController.prepMJCommand)
         self.linearMoveButton.grid(row=0, column=4, columnspan=2, padx=5, pady=5, sticky=E)
+        self.linearMoveButton = Button(self.linearMoveFrame, text="Send ML", command=self.armController.prepMLCommand)
+        self.linearMoveButton.grid(row=0, column=6, columnspan=2, padx=5, pady=5, sticky=E)
 
         # Coordinate labels and text boxes
         # Create them

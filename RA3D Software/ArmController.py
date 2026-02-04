@@ -211,21 +211,21 @@ class ArmController:
         '''if re.match(pattern, incomingJ1):
             print("Process Position Failed, not a number. Problem with Serial.")
             return'''
-        self.curJ2 = response[J2Idx+1:J3Idx].strip()
-        self.curJ3 = response[J3Idx+1:J4Idx].strip()
-        self.curJ4 = response[J4Idx+1:J5Idx].strip()
-        self.curJ5 = response[J5Idx+1:J6Idx].strip()
-        self.curJ6 = response[J6Idx+1:XPosIdx].strip()
-
+        self.curJ2 = float(response[J2Idx+1:J3Idx].strip())
+        self.curJ3 = float(response[J3Idx+1:J4Idx].strip())
+        self.curJ4 = float(response[J4Idx+1:J5Idx].strip())
+        self.curJ5 = float(response[J5Idx+1:J6Idx].strip())
+        self.curJ6 = float(response[J6Idx+1:XPosIdx].strip())
+        
         # XYZ Positions
-        self.curPos.x = response[XPosIdx+1:YPosIdx].strip()
-        self.curPos.y = response[YPosIdx+1:ZPosIdx].strip()
-        self.curPos.z = response[ZPosIdx+1:RzIdx].strip()
+        self.curPos.x = float(response[XPosIdx+1:YPosIdx].strip())
+        self.curPos.y = float(response[YPosIdx+1:ZPosIdx].strip())
+        self.curPos.z = float(response[ZPosIdx+1:RzIdx].strip())
 
         # RXYZ Angles
-        self.curPos.Rx = response[RxIdx+1:SpeedViolationIdx].strip()
-        self.curPos.Ry = response[RyIdx+1:RxIdx].strip()
-        self.curPos.Rz = response[RzIdx+1:RyIdx].strip()
+        self.curPos.Rx = float(response[RxIdx+1:SpeedViolationIdx].strip())
+        self.curPos.Ry = float(response[RyIdx+1:RxIdx].strip())
+        self.curPos.Rz = float(response[RzIdx+1:RyIdx].strip())
 
         # Display values on UI
         # XYZ
@@ -694,7 +694,7 @@ class ArmController:
         if not self.origin.checkOriginSet():
             self.root.statusPrint("Origin not set")
             return None, None, None
-        deltaX,deltaY,deltaZ = self.curPos.GetRelative
+        deltaX,deltaY,deltaZ = self.curPos.GetRelative()[:3]
         self.root.xDeltaOrigin.config(text=deltaX)
         self.root.yDeltaOrigin.config(text=deltaY)
         self.root.zDeltaOrigin.config(text=deltaZ)
@@ -735,12 +735,13 @@ class ArmController:
 # --- Other Classes ---
 class Position:
     def __init__(self, x, y, z, Rx, Ry, Rz, originObj):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.Rx = Rx
-        self.Ry = Ry
-        self.Rz = Rz
+        if x is not None and y is not None and z is not None:
+            self.x = float(x)
+            self.y = float(y)
+            self.z = float(z)
+            self.Rx = float(Rx)
+            self.Ry = float(Ry)
+            self.Rz = float(Rz)
         self.origin = originObj
     def GetAbsolute(self):
         return [self.x, self.y, self.z, self.Rx, self.Ry, self.Rz]
