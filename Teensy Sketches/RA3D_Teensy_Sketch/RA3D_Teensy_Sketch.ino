@@ -274,12 +274,12 @@ typedef float tRobotJoints[ROBOT_nDOFs];
 typedef float tRobotPose[ROBOT_nDOFs];
 
 //declare in out vars
-float xyzuvw_Out[ROBOT_nDOFs];
-float xyzuvw_In[ROBOT_nDOFs];
+float xyzuvw_PostKin[ROBOT_nDOFs];
+float xyzuvw_PreKin[ROBOT_nDOFs];
 float xyzuvw_Temp[ROBOT_nDOFs];
 
-float JangleOut[ROBOT_nDOFs];
-float JangleIn[ROBOT_nDOFs];
+float JointAnglePostKin[ROBOT_nDOFs];
+float JointAnglePreKin[ROBOT_nDOFs];
 float joints_estimate[ROBOT_nDOFs];
 float SolutionMatrix[ROBOT_nDOFs][4];
 
@@ -823,17 +823,17 @@ void SolveFowardKinematics() {
   float joints[ROBOT_nDOFs];
 
   for (int i = 0; i < ROBOT_nDOFs; i++) {
-    joints[i] = JangleIn[i];
+    joints[i] = JointAnglePreKin[i];
   }
 
   forward_kinematics_robot_xyzuvw(joints, target_xyzuvw);
 
-  xyzuvw_Out[0] = target_xyzuvw[0];
-  xyzuvw_Out[1] = target_xyzuvw[1];
-  xyzuvw_Out[2] = target_xyzuvw[2];
-  xyzuvw_Out[3] = target_xyzuvw[3] / M_PI * 180;
-  xyzuvw_Out[4] = target_xyzuvw[4] / M_PI * 180;
-  xyzuvw_Out[5] = target_xyzuvw[5] / M_PI * 180;
+  xyzuvw_PostKin[0] = target_xyzuvw[0];
+  xyzuvw_PostKin[1] = target_xyzuvw[1];
+  xyzuvw_PostKin[2] = target_xyzuvw[2];
+  xyzuvw_PostKin[3] = target_xyzuvw[3] / M_PI * 180;
+  xyzuvw_PostKin[4] = target_xyzuvw[4] / M_PI * 180;
+  xyzuvw_PostKin[5] = target_xyzuvw[5] / M_PI * 180;
 }
 
 
@@ -879,14 +879,14 @@ void forward_kinematics_robot(const T joints[ROBOT_nDOFs], Matrix4x4 target) {
 void updatejoints() {
 
   for (int i = 0; i > ROBOT_nDOFs; i++) {
-    JangleIn[i] = JangleOut[i];
+    JointAnglePreKin[i] = JointAnglePostKin[i];
   }
 }
 
 void JointEstimate() {
 
   for (int i = 0; i < ROBOT_nDOFs; i++) {
-    joints_estimate[i] = JangleIn[i];
+    joints_estimate[i] = JointAnglePreKin[i];
   }
 }
 
@@ -902,14 +902,14 @@ void SolveInverseKinematics() {
   KinematicError = 0;
 
   JointEstimate();
-  target[0] = xyzuvw_In[0];
-  target[1] = xyzuvw_In[1];
-  target[2] = xyzuvw_In[2];
-  target[3] = xyzuvw_In[3] * M_PI / 180;
-  target[4] = xyzuvw_In[4] * M_PI / 180;
-  target[5] = xyzuvw_In[5] * M_PI / 180;
+  target[0] = xyzuvw_PreKin[0];
+  target[1] = xyzuvw_PreKin[1];
+  target[2] = xyzuvw_PreKin[2];
+  target[3] = xyzuvw_PreKin[3] * M_PI / 180;
+  target[4] = xyzuvw_PreKin[4] * M_PI / 180;
+  target[5] = xyzuvw_PreKin[5] * M_PI / 180;
 
-  // Serial.println("X : " + String(target[0]) + " Y : " + String(target[1]) + " Z : " + String(target[2]) + " rx : " + String(xyzuvw_In[3]) + " ry : " + String(xyzuvw_In[4]) + " rz : " + String(xyzuvw_In[5]));
+  // Serial.println("X : " + String(target[0]) + " Y : " + String(target[1]) + " Z : " + String(target[2]) + " rx : " + String(xyzuvw_PreKin[3]) + " ry : " + String(xyzuvw_PreKin[4]) + " rz : " + String(xyzuvw_PreKin[5]));
 
 
   for (int i = -3; i <= 3; i++) {
@@ -932,7 +932,7 @@ void SolveInverseKinematics() {
     }
   }
 
-  joints_estimate[4] = JangleIn[4];
+  joints_estimate[4] = JointAnglePreKin[4];
 
 
   solVal = 0;
@@ -955,7 +955,7 @@ void SolveInverseKinematics() {
   // Serial.println("Sol : " + String(solVal) + " Nb sol : " + String(NumberOfSol));
 
   for (int i = 0; i < ROBOT_nDOFs; i++) {
-    JangleOut[i] = SolutionMatrix[i][solVal];
+    JointAnglePostKin[i] = SolutionMatrix[i][solVal];
   }
 }
 
@@ -1239,7 +1239,7 @@ void sendRobotPos() {
 
   updatePos();
 
-  String sendPos = "A" + String(JangleIn[0], 3) + "B" + String(JangleIn[1], 3) + "C" + String(JangleIn[2], 3) + "D" + String(JangleIn[3], 3) + "E" + String(JangleIn[4], 3) + "F" + String(JangleIn[5], 3) + "G" + String(xyzuvw_Out[0], 3) + "H" + String(xyzuvw_Out[1], 3) + "I" + String(xyzuvw_Out[2], 3) + "J" + String(xyzuvw_Out[3], 3) + "K" + String(xyzuvw_Out[4], 3) + "L" + String(xyzuvw_Out[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
+  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
   delay(5);
   Serial.println(sendPos);
   speedViolation = "0";
@@ -1250,7 +1250,7 @@ void sendRobotPosSpline() {
 
   updatePos();
 
-  String sendPos = "A" + String(JangleIn[0], 3) + "B" + String(JangleIn[1], 3) + "C" + String(JangleIn[2], 3) + "D" + String(JangleIn[3], 3) + "E" + String(JangleIn[4], 3) + "F" + String(JangleIn[5], 3) + "G" + String(xyzuvw_Out[0], 3) + "H" + String(xyzuvw_Out[1], 3) + "I" + String(xyzuvw_Out[2], 3) + "J" + String(xyzuvw_Out[3], 3) + "K" + String(xyzuvw_Out[4], 3) + "L" + String(xyzuvw_Out[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
+  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
   delay(5);
   Serial.println(sendPos);
   speedViolation = "0";
@@ -1261,12 +1261,12 @@ void updatePos() {
   if (closedLoopTrue){
     readEncoders();
   }
-  JangleIn[0] = (J1StepM - J1zeroStep) / J1StepDeg;
-  JangleIn[1] = (J2StepM - J2zeroStep) / J2StepDeg;
-  JangleIn[2] = (J3StepM - J3zeroStep) / J3StepDeg;
-  JangleIn[3] = (J4StepM - J4zeroStep) / J4StepDeg;
-  JangleIn[4] = (J5StepM - J5zeroStep) / J5StepDeg;
-  JangleIn[5] = (J6StepM - J6zeroStep) / J6StepDeg;
+  JointAnglePreKin[0] = (J1StepM - J1zeroStep) / J1StepDeg;
+  JointAnglePreKin[1] = (J2StepM - J2zeroStep) / J2StepDeg;
+  JointAnglePreKin[2] = (J3StepM - J3zeroStep) / J3StepDeg;
+  JointAnglePreKin[3] = (J4StepM - J4zeroStep) / J4StepDeg;
+  JointAnglePreKin[4] = (J5StepM - J5zeroStep) / J5StepDeg;
+  JointAnglePreKin[5] = (J6StepM - J6zeroStep) / J6StepDeg;
 
   J7_pos = (J7StepM - J7zeroStep) / J7StepDeg;
   J8_pos = (J8StepM - J8zeroStep) / J8StepDeg;
@@ -1286,17 +1286,17 @@ void correctRobotPos() {
   J5StepM = J5encPos.read() / J5encMult;
   J6StepM = J6encPos.read() / J6encMult;
 
-  JangleIn[0] = (J1StepM - J1zeroStep) / J1StepDeg;
-  JangleIn[1] = (J2StepM - J2zeroStep) / J2StepDeg;
-  JangleIn[2] = (J3StepM - J3zeroStep) / J3StepDeg;
-  JangleIn[3] = (J4StepM - J4zeroStep) / J4StepDeg;
-  JangleIn[4] = (J5StepM - J5zeroStep) / J5StepDeg;
-  JangleIn[5] = (J6StepM - J6zeroStep) / J6StepDeg;
+  JointAnglePreKin[0] = (J1StepM - J1zeroStep) / J1StepDeg;
+  JointAnglePreKin[1] = (J2StepM - J2zeroStep) / J2StepDeg;
+  JointAnglePreKin[2] = (J3StepM - J3zeroStep) / J3StepDeg;
+  JointAnglePreKin[3] = (J4StepM - J4zeroStep) / J4StepDeg;
+  JointAnglePreKin[4] = (J5StepM - J5zeroStep) / J5StepDeg;
+  JointAnglePreKin[5] = (J6StepM - J6zeroStep) / J6StepDeg;
 
 
   SolveFowardKinematics();
 
-  String sendPos = "A" + String(JangleIn[0], 3) + "B" + String(JangleIn[1], 3) + "C" + String(JangleIn[2], 3) + "D" + String(JangleIn[3], 3) + "E" + String(JangleIn[4], 3) + "F" + String(JangleIn[5], 3) + "G" + String(xyzuvw_Out[0], 3) + "H" + String(xyzuvw_Out[1], 3) + "I" + String(xyzuvw_Out[2], 3) + "J" + String(xyzuvw_Out[3], 3) + "K" + String(xyzuvw_Out[4], 3) + "L" + String(xyzuvw_Out[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
+  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
   delay(5);
   Serial.println(sendPos);
   speedViolation = "0";
@@ -1586,7 +1586,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
   if (SpeedType == "s") {
     speedSP = (SpeedVal * 1000000.0f) * 1.0f;
   } else if (SpeedType == "m") {
-    float lineDist = pow(pow(xyzuvw_In[0] - xyzuvw_Out[0], 2) + pow(xyzuvw_In[1] - xyzuvw_Out[1], 2) + pow(xyzuvw_In[2] - xyzuvw_Out[2], 2), 0.5f);
+    float lineDist = pow(pow(xyzuvw_PreKin[0] - xyzuvw_PostKin[0], 2) + pow(xyzuvw_PreKin[1] - xyzuvw_PostKin[1], 2) + pow(xyzuvw_PreKin[2] - xyzuvw_PostKin[2], 2), 0.5f);
     speedSP = ((lineDist / SpeedVal) * 1000000.0f) * 1.0f;
   }
 
@@ -2052,12 +2052,12 @@ void moveJ(String inData, bool response, bool precalc, bool simspeed) {
   int WristConStart = inData.indexOf("W");
   int LoopModeStart = inData.indexOf("Lm");
 
-  xyzuvw_In[0] = inData.substring(xStart + 1, yStart).toFloat();
-  xyzuvw_In[1] = inData.substring(yStart + 1, zStart).toFloat();
-  xyzuvw_In[2] = inData.substring(zStart + 1, rzStart).toFloat();
-  xyzuvw_In[3] = inData.substring(rzStart + 2, ryStart).toFloat();
-  xyzuvw_In[4] = inData.substring(ryStart + 2, rxStart).toFloat();
-  xyzuvw_In[5] = inData.substring(rxStart + 2, J7Start).toFloat();
+  xyzuvw_PreKin[0] = inData.substring(xStart + 1, yStart).toFloat();
+  xyzuvw_PreKin[1] = inData.substring(yStart + 1, zStart).toFloat();
+  xyzuvw_PreKin[2] = inData.substring(zStart + 1, rzStart).toFloat();
+  xyzuvw_PreKin[3] = inData.substring(rzStart + 2, ryStart).toFloat();
+  xyzuvw_PreKin[4] = inData.substring(ryStart + 2, rxStart).toFloat();
+  xyzuvw_PreKin[5] = inData.substring(rxStart + 2, J7Start).toFloat();
   J7_In = inData.substring(J7Start + 2, J8Start).toFloat();
   J8_In = inData.substring(J8Start + 2, J9Start).toFloat();
   J9_In = inData.substring(J9Start + 2, SPstart).toFloat();
@@ -2082,12 +2082,12 @@ void moveJ(String inData, bool response, bool precalc, bool simspeed) {
   SolveInverseKinematics();
 
   //calc destination motor steps
-  int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-  int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-  int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-  int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-  int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-  int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+  int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+  int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+  int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+  int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+  int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+  int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
   int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
   int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
   int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
@@ -2434,7 +2434,7 @@ void setup() {
   splineEndReceived = false;
 }
 void closedLoop(){
-
+  //Need better check
   if J1TargetStep = 0{
     return
   }
@@ -2443,11 +2443,11 @@ void closedLoop(){
   
   //calc delta from current to destination
   int J1stepDif = J1StepM - J1TargetStep;
-  int J2stepDif = J2StepM - J1TargetStep;
-  int J3stepDif = J3StepM - J1TargetStep;
-  int J4stepDif = J4StepM - J1TargetStep;
-  int J5stepDif = J5StepM - J1TargetStep;
-  int J6stepDif = J6StepM - J1TargetStep;
+  int J2stepDif = J2StepM - J2TargetStep;
+  int J3stepDif = J3StepM - J3TargetStep;
+  int J4stepDif = J4StepM - J4TargetStep;
+  int J5stepDif = J5StepM - J5TargetStep;
+  int J6stepDif = J6StepM - J6TargetStep;
   //External axeses aren't part of the closed loop like the extruder control
   int J7stepDif = 0;
   int J8stepDif = 0;
@@ -2518,11 +2518,11 @@ void closedLoop(){
   }
   TotalAxisFault = J1axisFault + J2axisFault + J3axisFault + J4axisFault + J5axisFault + J6axisFault + J7axisFault + J8axisFault + J9axisFault;
 
-  float SpeedTypey = 
-  float SpeedVal =
-  float ACCspd
-  float DCCspd
-  float ACCramp
+  float SpeedType = "p";
+  float SpeedVal = 25;
+  float ACCspd = 0;
+  float DCCspd = 0;
+  float ACCramp = 10;
   //send move command if no axis limit error and no collision
   if (TotalAxisFault == 0 && KinematicError == 0 && TotalCollision == 0) {
     resetEncoders();//reset collision detecion
@@ -2877,12 +2877,12 @@ void loop() {
       float DCCspd = 10.0;
       float ACCramp = 20.0;
 
-      JangleIn[0] = 0.00;
-      JangleIn[1] = 0.00;
-      JangleIn[2] = 0.00;
-      JangleIn[3] = 0.00;
-      JangleIn[4] = 0.00;
-      JangleIn[5] = 0.00;
+      JointAnglePreKin[0] = 0.00;
+      JointAnglePreKin[1] = 0.00;
+      JointAnglePreKin[2] = 0.00;
+      JointAnglePreKin[3] = 0.00;
+      JointAnglePreKin[4] = 0.00;
+      JointAnglePreKin[5] = 0.00;
 
 
       //calc destination motor steps
@@ -3341,12 +3341,12 @@ void loop() {
       int J5start = inData.indexOf('E');
       int J6start = inData.indexOf('F');
       int WristConStart = inData.indexOf('W');
-      JangleIn[0] = inData.substring(J1start + 1, J2start).toFloat();
-      JangleIn[1] = inData.substring(J2start + 1, J3start).toFloat();
-      JangleIn[2] = inData.substring(J3start + 1, J4start).toFloat();
-      JangleIn[3] = inData.substring(J4start + 1, J5start).toFloat();
-      JangleIn[4] = inData.substring(J5start + 1, J6start).toFloat();
-      JangleIn[5] = inData.substring(J6start + 1, WristConStart).toFloat();
+      JointAnglePreKin[0] = inData.substring(J1start + 1, J2start).toFloat();
+      JointAnglePreKin[1] = inData.substring(J2start + 1, J3start).toFloat();
+      JointAnglePreKin[2] = inData.substring(J3start + 1, J4start).toFloat();
+      JointAnglePreKin[3] = inData.substring(J4start + 1, J5start).toFloat();
+      JointAnglePreKin[4] = inData.substring(J5start + 1, J6start).toFloat();
+      JointAnglePreKin[5] = inData.substring(J6start + 1, WristConStart).toFloat();
       WristCon = inData.substring(WristConStart + 1);
       WristCon.trim();
 
@@ -3846,67 +3846,67 @@ void loop() {
 
       inData = "";  // Clear recieved buffer
 
-      xyzuvw_In[0] = xyzuvw_Out[0];
-      xyzuvw_In[1] = xyzuvw_Out[1];
-      xyzuvw_In[2] = xyzuvw_Out[2];
-      xyzuvw_In[3] = xyzuvw_Out[3];
-      xyzuvw_In[4] = xyzuvw_Out[4];
-      xyzuvw_In[5] = xyzuvw_Out[5];
+      xyzuvw_PreKin[0] = xyzuvw_PostKin[0];
+      xyzuvw_PreKin[1] = xyzuvw_PostKin[1];
+      xyzuvw_PreKin[2] = xyzuvw_PostKin[2];
+      xyzuvw_PreKin[3] = xyzuvw_PostKin[3];
+      xyzuvw_PreKin[4] = xyzuvw_PostKin[4];
+      xyzuvw_PreKin[5] = xyzuvw_PostKin[5];
 
 
       while (JogInPoc == true) {
 
         if (Vector == 10) {
-          xyzuvw_In[0] = xyzuvw_Out[0] - JogStepInc;
+          xyzuvw_PreKin[0] = xyzuvw_PostKin[0] - JogStepInc;
         }
         if (Vector == 11) {
-          xyzuvw_In[0] = xyzuvw_Out[0] + JogStepInc;
+          xyzuvw_PreKin[0] = xyzuvw_PostKin[0] + JogStepInc;
         }
 
         if (Vector == 20) {
-          xyzuvw_In[1] = xyzuvw_Out[1] - JogStepInc;
+          xyzuvw_PreKin[1] = xyzuvw_PostKin[1] - JogStepInc;
         }
         if (Vector == 21) {
-          xyzuvw_In[1] = xyzuvw_Out[1] + JogStepInc;
+          xyzuvw_PreKin[1] = xyzuvw_PostKin[1] + JogStepInc;
         }
 
         if (Vector == 30) {
-          xyzuvw_In[2] = xyzuvw_Out[2] - JogStepInc;
+          xyzuvw_PreKin[2] = xyzuvw_PostKin[2] - JogStepInc;
         }
         if (Vector == 31) {
-          xyzuvw_In[2] = xyzuvw_Out[2] + JogStepInc;
+          xyzuvw_PreKin[2] = xyzuvw_PostKin[2] + JogStepInc;
         }
 
         if (Vector == 40) {
-          xyzuvw_In[3] = xyzuvw_Out[3] - JogStepInc;
+          xyzuvw_PreKin[3] = xyzuvw_PostKin[3] - JogStepInc;
         }
         if (Vector == 41) {
-          xyzuvw_In[3] = xyzuvw_Out[3] + JogStepInc;
+          xyzuvw_PreKin[3] = xyzuvw_PostKin[3] + JogStepInc;
         }
 
         if (Vector == 50) {
-          xyzuvw_In[4] = xyzuvw_Out[4] - JogStepInc;
+          xyzuvw_PreKin[4] = xyzuvw_PostKin[4] - JogStepInc;
         }
         if (Vector == 51) {
-          xyzuvw_In[4] = xyzuvw_Out[4] + JogStepInc;
+          xyzuvw_PreKin[4] = xyzuvw_PostKin[4] + JogStepInc;
         }
 
         if (Vector == 60) {
-          xyzuvw_In[5] = xyzuvw_Out[5] - JogStepInc;
+          xyzuvw_PreKin[5] = xyzuvw_PostKin[5] - JogStepInc;
         }
         if (Vector == 61) {
-          xyzuvw_In[5] = xyzuvw_Out[5] + JogStepInc;
+          xyzuvw_PreKin[5] = xyzuvw_PostKin[5] + JogStepInc;
         }
 
         SolveInverseKinematics();
 
         //calc destination motor steps
-        int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-        int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-        int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-        int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-        int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-        int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+        int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+        int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+        int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+        int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+        int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+        int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
 
         //calc delta from current to destination
         int J1stepDif = J1StepM - J1futStepM;
@@ -4061,59 +4061,59 @@ void loop() {
       Serial.println();
       updatePos();
 
-      float J1Angle = JangleIn[0];
-      float J2Angle = JangleIn[1];
-      float J3Angle = JangleIn[2];
-      float J4Angle = JangleIn[3];
-      float J5Angle = JangleIn[4];
-      float J6Angle = JangleIn[5];
+      float J1Angle = JointAnglePreKin[0];
+      float J2Angle = JointAnglePreKin[1];
+      float J3Angle = JointAnglePreKin[2];
+      float J4Angle = JointAnglePreKin[3];
+      float J5Angle = JointAnglePreKin[4];
+      float J6Angle = JointAnglePreKin[5];
       float J7Angle = J7_pos;
       float J8Angle = J8_pos;
       float J9Angle = J9_pos;
-      float xyzuvw_In[6];
+      float xyzuvw_PreKin[6];
 
       while (JogInPoc == true) {
 
         if (Vector == 10) {
-          J1Angle = JangleIn[0] - .25;
+          J1Angle = JointAnglePreKin[0] - .25;
         }
         if (Vector == 11) {
-          J1Angle = JangleIn[0] + .25;
+          J1Angle = JointAnglePreKin[0] + .25;
         }
 
         if (Vector == 20) {
-          J2Angle = JangleIn[1] - .25;
+          J2Angle = JointAnglePreKin[1] - .25;
         }
         if (Vector == 21) {
-          J2Angle = JangleIn[1] + .25;
+          J2Angle = JointAnglePreKin[1] + .25;
         }
 
         if (Vector == 30) {
-          J3Angle = JangleIn[2] - .25;
+          J3Angle = JointAnglePreKin[2] - .25;
         }
         if (Vector == 31) {
-          J3Angle = JangleIn[2] + .25;
+          J3Angle = JointAnglePreKin[2] + .25;
         }
 
         if (Vector == 40) {
-          J4Angle = JangleIn[3] - .25;
+          J4Angle = JointAnglePreKin[3] - .25;
         }
         if (Vector == 41) {
-          J4Angle = JangleIn[3] + .25;
+          J4Angle = JointAnglePreKin[3] + .25;
         }
 
         if (Vector == 50) {
-          J5Angle = JangleIn[4] - .25;
+          J5Angle = JointAnglePreKin[4] - .25;
         }
         if (Vector == 51) {
-          J5Angle = JangleIn[4] + .25;
+          J5Angle = JointAnglePreKin[4] + .25;
         }
 
         if (Vector == 60) {
-          J6Angle = JangleIn[5] - .25;
+          J6Angle = JointAnglePreKin[5] - .25;
         }
         if (Vector == 61) {
-          J6Angle = JangleIn[5] + .25;
+          J6Angle = JointAnglePreKin[5] + .25;
         }
         if (Vector == 70) {
           J7Angle = J7_pos - .25;
@@ -4314,12 +4314,12 @@ void loop() {
       RYtool = Robot_Kin_Tool[4];
       RZtool = Robot_Kin_Tool[5];
 
-      JangleIn[0] = (J1StepM - J1zeroStep) / J1StepDeg;
-      JangleIn[1] = (J2StepM - J2zeroStep) / J2StepDeg;
-      JangleIn[2] = (J3StepM - J3zeroStep) / J3StepDeg;
-      JangleIn[3] = (J4StepM - J4zeroStep) / J4StepDeg;
-      JangleIn[4] = (J5StepM - J5zeroStep) / J5StepDeg;
-      JangleIn[5] = (J6StepM - J6zeroStep) / J6StepDeg;
+      JointAnglePreKin[0] = (J1StepM - J1zeroStep) / J1StepDeg;
+      JointAnglePreKin[1] = (J2StepM - J2zeroStep) / J2StepDeg;
+      JointAnglePreKin[2] = (J3StepM - J3zeroStep) / J3StepDeg;
+      JointAnglePreKin[3] = (J4StepM - J4zeroStep) / J4StepDeg;
+      JointAnglePreKin[4] = (J5StepM - J5zeroStep) / J5StepDeg;
+      JointAnglePreKin[5] = (J6StepM - J6zeroStep) / J6StepDeg;
 
       while (JogInPoc == true) {
 
@@ -4367,12 +4367,12 @@ void loop() {
 
 
 
-        xyzuvw_In[0] = xyzuvw_Out[0];
-        xyzuvw_In[1] = xyzuvw_Out[1];
-        xyzuvw_In[2] = xyzuvw_Out[2];
-        xyzuvw_In[3] = xyzuvw_Out[3];
-        xyzuvw_In[4] = xyzuvw_Out[4];
-        xyzuvw_In[5] = xyzuvw_Out[5];
+        xyzuvw_PreKin[0] = xyzuvw_PostKin[0];
+        xyzuvw_PreKin[1] = xyzuvw_PostKin[1];
+        xyzuvw_PreKin[2] = xyzuvw_PostKin[2];
+        xyzuvw_PreKin[3] = xyzuvw_PostKin[3];
+        xyzuvw_PreKin[4] = xyzuvw_PostKin[4];
+        xyzuvw_PreKin[5] = xyzuvw_PostKin[5];
 
         SolveInverseKinematics();
 
@@ -4384,12 +4384,12 @@ void loop() {
         Robot_Kin_Tool[5] = RZtool;
 
         //calc destination motor steps
-        int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-        int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-        int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-        int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-        int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-        int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+        int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+        int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+        int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+        int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+        int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+        int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
 
         //calc delta from current to destination
         int J1stepDif = J1StepM - J1futStepM;
@@ -4558,20 +4558,20 @@ void loop() {
       }
 
 
-      JangleIn[0] = (J1StepM - J1zeroStep) / J1StepDeg;
-      JangleIn[1] = (J2StepM - J2zeroStep) / J2StepDeg;
-      JangleIn[2] = (J3StepM - J3zeroStep) / J3StepDeg;
-      JangleIn[3] = (J4StepM - J4zeroStep) / J4StepDeg;
-      JangleIn[4] = (J5StepM - J5zeroStep) / J5StepDeg;
-      JangleIn[5] = (J6StepM - J6zeroStep) / J6StepDeg;
+      JointAnglePreKin[0] = (J1StepM - J1zeroStep) / J1StepDeg;
+      JointAnglePreKin[1] = (J2StepM - J2zeroStep) / J2StepDeg;
+      JointAnglePreKin[2] = (J3StepM - J3zeroStep) / J3StepDeg;
+      JointAnglePreKin[3] = (J4StepM - J4zeroStep) / J4StepDeg;
+      JointAnglePreKin[4] = (J5StepM - J5zeroStep) / J5StepDeg;
+      JointAnglePreKin[5] = (J6StepM - J6zeroStep) / J6StepDeg;
 
 
-      xyzuvw_In[0] = xyzuvw_Out[0];
-      xyzuvw_In[1] = xyzuvw_Out[1];
-      xyzuvw_In[2] = xyzuvw_Out[2];
-      xyzuvw_In[3] = xyzuvw_Out[3];
-      xyzuvw_In[4] = xyzuvw_Out[4];
-      xyzuvw_In[5] = xyzuvw_Out[5];
+      xyzuvw_PreKin[0] = xyzuvw_PostKin[0];
+      xyzuvw_PreKin[1] = xyzuvw_PostKin[1];
+      xyzuvw_PreKin[2] = xyzuvw_PostKin[2];
+      xyzuvw_PreKin[3] = xyzuvw_PostKin[3];
+      xyzuvw_PreKin[4] = xyzuvw_PostKin[4];
+      xyzuvw_PreKin[5] = xyzuvw_PostKin[5];
 
       SolveInverseKinematics();
 
@@ -4584,12 +4584,12 @@ void loop() {
 
 
       //calc destination motor steps
-      int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-      int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-      int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-      int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-      int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-      int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+      int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+      int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+      int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+      int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+      int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+      int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
 
       //calc delta from current to destination
       int J1stepDif = J1StepM - J1futStepM;
@@ -4711,12 +4711,12 @@ void loop() {
       int VisRotStart = inData.indexOf("Vr");
       int LoopModeStart = inData.indexOf("Lm");
 
-      xyzuvw_In[0] = inData.substring(xStart + 1, yStart).toFloat();
-      xyzuvw_In[1] = inData.substring(yStart + 1, zStart).toFloat();
-      xyzuvw_In[2] = inData.substring(zStart + 1, rzStart).toFloat();
-      xyzuvw_In[3] = inData.substring(rzStart + 2, ryStart).toFloat();
-      xyzuvw_In[4] = inData.substring(ryStart + 2, rxStart).toFloat();
-      xyzuvw_In[5] = inData.substring(rxStart + 2, J7Start).toFloat();
+      xyzuvw_PreKin[0] = inData.substring(xStart + 1, yStart).toFloat();
+      xyzuvw_PreKin[1] = inData.substring(yStart + 1, zStart).toFloat();
+      xyzuvw_PreKin[2] = inData.substring(zStart + 1, rzStart).toFloat();
+      xyzuvw_PreKin[3] = inData.substring(rzStart + 2, ryStart).toFloat();
+      xyzuvw_PreKin[4] = inData.substring(ryStart + 2, rxStart).toFloat();
+      xyzuvw_PreKin[5] = inData.substring(rxStart + 2, J7Start).toFloat();
       J7_In = inData.substring(J7Start + 2, J8Start).toFloat();
       J8_In = inData.substring(J8Start + 2, J9Start).toFloat();
       J9_In = inData.substring(J9Start + 2, SPstart).toFloat();
@@ -4749,12 +4749,12 @@ void loop() {
       SolveInverseKinematics();
 
       //calc destination motor steps
-      int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-      int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-      int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-      int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-      int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-      int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+      int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+      int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+      int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+      int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+      int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+      int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
       int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
       int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
       int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
@@ -4931,6 +4931,11 @@ void loop() {
       int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
       int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
       J1TargetStep = J1futStepM;
+      J2TargetStep = J2futStepM;
+      J3TargetStep = J3futStepM;
+      J4TargetStep = J4futStepM;
+      J5TargetStep = J5futStepM;
+      J6TargetStep = J6futStepM;
       if (closedLoopTrue){
         readEncoders();
       }
@@ -5115,19 +5120,19 @@ void loop() {
         //calculate new end point before rounding arc
         updatePos();
         //vector
-        float Xvect = xyzuvw_Temp[0] - xyzuvw_Out[0];
-        float Yvect = xyzuvw_Temp[1] - xyzuvw_Out[1];
-        float Zvect = xyzuvw_Temp[2] - xyzuvw_Out[2];
-        float RZvect = xyzuvw_Temp[3] - xyzuvw_Out[3];
-        float RYvect = xyzuvw_Temp[4] - xyzuvw_Out[4];
-        float RXvect = xyzuvw_Temp[5] - xyzuvw_Out[5];
+        float Xvect = xyzuvw_Temp[0] - xyzuvw_PostKin[0];
+        float Yvect = xyzuvw_Temp[1] - xyzuvw_PostKin[1];
+        float Zvect = xyzuvw_Temp[2] - xyzuvw_PostKin[2];
+        float RZvect = xyzuvw_Temp[3] - xyzuvw_PostKin[3];
+        float RYvect = xyzuvw_Temp[4] - xyzuvw_PostKin[4];
+        float RXvect = xyzuvw_Temp[5] - xyzuvw_PostKin[5];
         //start pos
-        float Xstart = xyzuvw_Out[0];
-        float Ystart = xyzuvw_Out[1];
-        float Zstart = xyzuvw_Out[2];
-        float RZstart = xyzuvw_Out[3];
-        float RYstart = xyzuvw_Out[4];
-        float RXstart = xyzuvw_Out[5];
+        float Xstart = xyzuvw_PostKin[0];
+        float Ystart = xyzuvw_PostKin[1];
+        float Zstart = xyzuvw_PostKin[2];
+        float RZstart = xyzuvw_PostKin[3];
+        float RYstart = xyzuvw_PostKin[4];
+        float RXstart = xyzuvw_PostKin[5];
         //line dist
         float lineDist = pow((pow((Xvect), 2) + pow((Yvect), 2) + pow((Zvect), 2) + pow((RZvect), 2) + pow((RYvect), 2) + pow((RXvect), 2)), .5);
         if (Rounding > (lineDist * .45)) {
@@ -5135,12 +5140,12 @@ void loop() {
         }
         float newDistPerc = 1 - (Rounding / lineDist);
         //cropped destination (new end point before rounding arc)
-        xyzuvw_In[0] = Xstart + (Xvect * newDistPerc);
-        xyzuvw_In[1] = Ystart + (Yvect * newDistPerc);
-        xyzuvw_In[2] = Zstart + (Zvect * newDistPerc);
-        xyzuvw_In[3] = RZstart + (RZvect * newDistPerc);
-        xyzuvw_In[4] = RYstart + (RYvect * newDistPerc);
-        xyzuvw_In[5] = RXstart + (RXvect * newDistPerc);
+        xyzuvw_PreKin[0] = Xstart + (Xvect * newDistPerc);
+        xyzuvw_PreKin[1] = Ystart + (Yvect * newDistPerc);
+        xyzuvw_PreKin[2] = Zstart + (Zvect * newDistPerc);
+        xyzuvw_PreKin[3] = RZstart + (RZvect * newDistPerc);
+        xyzuvw_PreKin[4] = RYstart + (RYvect * newDistPerc);
+        xyzuvw_PreKin[5] = RXstart + (RXvect * newDistPerc);
         xStart = checkData.indexOf("X");
         yStart = checkData.indexOf("Y");
         zStart = checkData.indexOf("Z");
@@ -5185,12 +5190,12 @@ void loop() {
         rndArcEnd[4] = RYstart + (RYvect * newDistPerc);
         rndArcEnd[5] = RXstart + (RXvect * newDistPerc);
         //calculate arc center point
-        rndCalcCen[0] = (xyzuvw_In[0] + rndArcEnd[0]) / 2;
-        rndCalcCen[1] = (xyzuvw_In[1] + rndArcEnd[1]) / 2;
-        rndCalcCen[2] = (xyzuvw_In[2] + rndArcEnd[2]) / 2;
-        rndCalcCen[3] = (xyzuvw_In[3] + rndArcEnd[3]) / 2;
-        rndCalcCen[4] = (xyzuvw_In[4] + rndArcEnd[4]) / 2;
-        rndCalcCen[5] = (xyzuvw_In[5] + rndArcEnd[5]) / 2;
+        rndCalcCen[0] = (xyzuvw_PreKin[0] + rndArcEnd[0]) / 2;
+        rndCalcCen[1] = (xyzuvw_PreKin[1] + rndArcEnd[1]) / 2;
+        rndCalcCen[2] = (xyzuvw_PreKin[2] + rndArcEnd[2]) / 2;
+        rndCalcCen[3] = (xyzuvw_PreKin[3] + rndArcEnd[3]) / 2;
+        rndCalcCen[4] = (xyzuvw_PreKin[4] + rndArcEnd[4]) / 2;
+        rndCalcCen[5] = (xyzuvw_PreKin[5] + rndArcEnd[5]) / 2;
         rndArcMid[0] = (xyzuvw_Temp[0] + rndCalcCen[0]) / 2;
         rndArcMid[1] = (xyzuvw_Temp[1] + rndCalcCen[1]) / 2;
         rndArcMid[2] = (xyzuvw_Temp[2] + rndCalcCen[2]) / 2;
@@ -5202,33 +5207,33 @@ void loop() {
         function = "MA";
         rndTrue = true;
       } else {
-        //Updates xyzuvw_Out as the current position using forwardKinematics
+        //Updates xyzuvw_PostKin as the current position using forwardKinematics
         updatePos();
         //Set input to InverseKinematics as desired position
-        xyzuvw_In[0] = xyzuvw_Temp[0];
-        xyzuvw_In[1] = xyzuvw_Temp[1];
-        xyzuvw_In[2] = xyzuvw_Temp[2];
-        xyzuvw_In[3] = xyzuvw_Temp[3];
-        xyzuvw_In[4] = xyzuvw_Temp[4];
-        xyzuvw_In[5] = xyzuvw_Temp[5];
+        xyzuvw_PreKin[0] = xyzuvw_Temp[0];
+        xyzuvw_PreKin[1] = xyzuvw_Temp[1];
+        xyzuvw_PreKin[2] = xyzuvw_Temp[2];
+        xyzuvw_PreKin[3] = xyzuvw_Temp[3];
+        xyzuvw_PreKin[4] = xyzuvw_Temp[4];
+        xyzuvw_PreKin[5] = xyzuvw_Temp[5];
       }
 
       //xyz vector
-      Xvect = xyzuvw_In[0] - xyzuvw_Out[0];
-      Yvect = xyzuvw_In[1] - xyzuvw_Out[1];
-      Zvect = xyzuvw_In[2] - xyzuvw_Out[2];
-      RZvect = xyzuvw_In[3] - xyzuvw_Out[3];
-      RYvect = xyzuvw_In[4] - xyzuvw_Out[4];
-      RXvect = xyzuvw_In[5] - xyzuvw_Out[5];
+      Xvect = xyzuvw_PreKin[0] - xyzuvw_PostKin[0];
+      Yvect = xyzuvw_PreKin[1] - xyzuvw_PostKin[1];
+      Zvect = xyzuvw_PreKin[2] - xyzuvw_PostKin[2];
+      RZvect = xyzuvw_PreKin[3] - xyzuvw_PostKin[3];
+      RYvect = xyzuvw_PreKin[4] - xyzuvw_PostKin[4];
+      RXvect = xyzuvw_PreKin[5] - xyzuvw_PostKin[5];
 
 
       //start pos
-      float Xstart = xyzuvw_Out[0];
-      float Ystart = xyzuvw_Out[1];
-      float Zstart = xyzuvw_Out[2];
-      float RZstart = xyzuvw_Out[3];
-      float RYstart = xyzuvw_Out[4];
-      float RXstart = xyzuvw_Out[5];
+      float Xstart = xyzuvw_PostKin[0];
+      float Ystart = xyzuvw_PostKin[1];
+      float Zstart = xyzuvw_PostKin[2];
+      float RZstart = xyzuvw_PostKin[3];
+      float RYstart = xyzuvw_PostKin[4];
+      float RXstart = xyzuvw_PostKin[5];
 
 
       //line dist and determine way point gap
@@ -5237,19 +5242,25 @@ void loop() {
       if (lineDist > 0) {
         
         float wayPts = lineDist / linWayDistSP;
-        float wayPerc = 1 / wayPts; //inverse of # of waypoints
+        float waypointPercentage = 1 / wayPts; //inverse of # of waypoints
 
         //pre calculate entire move and speeds
-        //Calculate JangleOut based on xyz_uvwIn
+        //Calculate JointAnglePostKin based on xyz_uvwIn
         SolveInverseKinematics();
         //calc destination motor steps for precalc
-        int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-        int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-        int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-        int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-        int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-        int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
-        
+        int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+        int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+        int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+        int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+        int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+        int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
+        //Update targets for closed loop control
+        J1TargetStep = J1futStepM;
+        J2TargetStep = J2futStepM;
+        J3TargetStep = J3futStepM;
+        J4TargetStep = J4futStepM;
+        J5TargetStep = J5futStepM;
+        J6TargetStep = J6futStepM;
         //calc delta from current to destination fpr precalc
         //used to calculate curDelay, not drive motors
         int J1stepDif = J1StepM - J1futStepM;
@@ -5384,24 +5395,25 @@ void loop() {
 
 
           curDelay = calcStepGap;//not sure why this undoes everything
-
-          float curWayPerc = wayPerc * i;
-          xyzuvw_In[0] = Xstart + (Xvect * curWayPerc);
-          xyzuvw_In[1] = Ystart + (Yvect * curWayPerc);
-          xyzuvw_In[2] = Zstart + (Zvect * curWayPerc);
-          xyzuvw_In[3] = RZstart + (RZvect * curWayPerc);
-          xyzuvw_In[4] = RYstart + (RYvect * curWayPerc);
-          xyzuvw_In[5] = RXstart + (RXvect * curWayPerc);
+          //waypoint percentage
+          float currentWaypointPercentage = waypointPercentage * i;
+          
+          xyzuvw_PreKin[0] = Xstart + (Xvect * currentWaypointPercentage);
+          xyzuvw_PreKin[1] = Ystart + (Yvect * currentWaypointPercentage);
+          xyzuvw_PreKin[2] = Zstart + (Zvect * currentWaypointPercentage);
+          xyzuvw_PreKin[3] = RZstart + (RZvect * currentWaypointPercentage);
+          xyzuvw_PreKin[4] = RYstart + (RYvect * currentWaypointPercentage);
+          xyzuvw_PreKin[5] = RXstart + (RXvect * currentWaypointPercentage);
 
           SolveInverseKinematics();
 
           //calc destination motor steps
-          int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-          int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-          int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-          int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-          int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-          int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+          int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+          int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+          int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+          int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+          int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+          int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
 
           //calc delta from current to destination
           int J1stepDif = J1StepM - J1futStepM;
@@ -5658,12 +5670,12 @@ void loop() {
       int LoopModeStart = inData.indexOf("Lm");
       int fileStart = inData.indexOf("Fn");
 
-      xyzuvw_In[0] = inData.substring(xStart + 1, yStart).toFloat();
-      xyzuvw_In[1] = inData.substring(yStart + 1, zStart).toFloat();
-      xyzuvw_In[2] = inData.substring(zStart + 1, rzStart).toFloat();
-      xyzuvw_In[3] = inData.substring(rzStart + 2, ryStart).toFloat();
-      xyzuvw_In[4] = inData.substring(ryStart + 2, rxStart).toFloat();
-      xyzuvw_In[5] = inData.substring(rxStart + 2, J7Start).toFloat();
+      xyzuvw_PreKin[0] = inData.substring(xStart + 1, yStart).toFloat();
+      xyzuvw_PreKin[1] = inData.substring(yStart + 1, zStart).toFloat();
+      xyzuvw_PreKin[2] = inData.substring(zStart + 1, rzStart).toFloat();
+      xyzuvw_PreKin[3] = inData.substring(rzStart + 2, ryStart).toFloat();
+      xyzuvw_PreKin[4] = inData.substring(ryStart + 2, rxStart).toFloat();
+      xyzuvw_PreKin[5] = inData.substring(rxStart + 2, J7Start).toFloat();
       J7_In = inData.substring(J7Start + 2, J8Start).toFloat();
       J8_In = inData.substring(J8Start + 2, J9Start).toFloat();
       J9_In = inData.substring(J9Start + 2, SPstart).toFloat();
@@ -5688,12 +5700,12 @@ void loop() {
       SolveInverseKinematics();
 
       //calc destination motor steps
-      int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-      int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-      int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-      int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-      int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-      int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+      int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+      int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+      int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+      int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+      int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+      int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
       int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
       int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
       int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
@@ -5872,7 +5884,7 @@ void loop() {
       float xEnd = inData.substring(xEndIndex + 2, yEndIndex).toFloat();
       float yEnd = inData.substring(yEndIndex + 2, zEndIndex).toFloat();
       float zEnd = inData.substring(zEndIndex + 2, tStart).toFloat();
-      xyzuvw_In[6] = inData.substring(tStart + 2, SPstart).toFloat();
+      xyzuvw_PreKin[6] = inData.substring(tStart + 2, SPstart).toFloat();
       String SpeedType = inData.substring(SPstart + 1, SPstart + 2);
       float SpeedVal = inData.substring(SPstart + 2, AcStart).toFloat();
       float ACCspd = inData.substring(AcStart + 2, DcStart).toFloat();
@@ -5935,7 +5947,7 @@ void loop() {
       float lineDist = 2 * 3.14159265359 * Radius;
       float wayPts = lineDist / linWayDistSP;
 
-      float wayPerc = 1 / wayPts;
+      float waypointPercentage = 1 / wayPts;
       //cacl way pt angle
       float theta_Deg = ((360 * Cdir) / (wayPts));
 
@@ -6045,22 +6057,22 @@ void loop() {
         }
 
         //shift way pts back to orignal origin and calc kinematics for way pt movement
-        xyzuvw_In[0] = (DestPt[0]) + Px;
-        xyzuvw_In[1] = (DestPt[1]) + Py;
-        xyzuvw_In[2] = (DestPt[2]) + Pz;
-        xyzuvw_In[3] = rzBeg;
-        xyzuvw_In[4] = ryBeg;
-        xyzuvw_In[5] = rxBeg;
+        xyzuvw_PreKin[0] = (DestPt[0]) + Px;
+        xyzuvw_PreKin[1] = (DestPt[1]) + Py;
+        xyzuvw_PreKin[2] = (DestPt[2]) + Pz;
+        xyzuvw_PreKin[3] = rzBeg;
+        xyzuvw_PreKin[4] = ryBeg;
+        xyzuvw_PreKin[5] = rxBeg;
 
         SolveInverseKinematics();
 
         //calc destination motor steps
-        int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-        int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-        int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-        int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-        int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-        int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+        int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+        int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+        int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+        int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+        int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+        int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
 
         //calc delta from current to destination
         int J1stepDif = J1StepM - J1futStepM;
@@ -6214,12 +6226,12 @@ void loop() {
 
       updatePos();
 
-      float xBeg = xyzuvw_Out[0];
-      float yBeg = xyzuvw_Out[1];
-      float zBeg = xyzuvw_Out[2];
-      float rzBeg = xyzuvw_Out[3];
-      float ryBeg = xyzuvw_Out[4];
-      float rxBeg = xyzuvw_Out[5];
+      float xBeg = xyzuvw_PostKin[0];
+      float yBeg = xyzuvw_PostKin[1];
+      float zBeg = xyzuvw_PostKin[2];
+      float rzBeg = xyzuvw_PostKin[3];
+      float ryBeg = xyzuvw_PostKin[4];
+      float rxBeg = xyzuvw_PostKin[5];
 
 
       float xMid = inData.substring(xMidIndex + 1, yMidIndex).toFloat();
@@ -6240,7 +6252,7 @@ void loop() {
       float zEnd = inData.substring(zEndIndex + 2, tStart).toFloat();
 
 
-      xyzuvw_In[6] = inData.substring(tStart + 2, SPstart).toFloat();
+      xyzuvw_PreKin[6] = inData.substring(tStart + 2, SPstart).toFloat();
       String SpeedType = inData.substring(SPstart + 1, SPstart + 2);
       float SpeedVal = inData.substring(SPstart + 2, AcStart).toFloat();
       float ACCspd = inData.substring(AcStart + 2, DcStart).toFloat();
@@ -6317,7 +6329,7 @@ void loop() {
       float lineDist = circumference * anglepercent;
       float wayPts = lineDist / linWayDistSP;
 
-      float wayPerc = 1 / wayPts;
+      float waypointPercentage = 1 / wayPts;
       //cacl way pt angle
       float theta_Deg = (ABdegrees / wayPts);
 
@@ -6434,24 +6446,24 @@ void loop() {
         }
 
         //shift way pts back to orignal origin and calc kinematics for way pt movement
-        float curWayPerc = wayPerc * i;
-        xyzuvw_In[0] = (DestPt[0]) + Px;
-        xyzuvw_In[1] = (DestPt[1]) + Py;
-        xyzuvw_In[2] = (DestPt[2]) + Pz;
-        xyzuvw_In[3] = rzBeg - (RZvect * curWayPerc);
-        xyzuvw_In[4] = ryBeg - (RYvect * curWayPerc);
-        xyzuvw_In[5] = rxBeg - (RXvect * curWayPerc);
+        float currentWaypointPercentage = waypointPercentage * i;
+        xyzuvw_PreKin[0] = (DestPt[0]) + Px;
+        xyzuvw_PreKin[1] = (DestPt[1]) + Py;
+        xyzuvw_PreKin[2] = (DestPt[2]) + Pz;
+        xyzuvw_PreKin[3] = rzBeg - (RZvect * currentWaypointPercentage);
+        xyzuvw_PreKin[4] = ryBeg - (RYvect * currentWaypointPercentage);
+        xyzuvw_PreKin[5] = rxBeg - (RXvect * currentWaypointPercentage);
 
 
         SolveInverseKinematics();
 
         //calc destination motor steps
-        int J1futStepM = (JangleOut[0] + J1axisLimNeg) * J1StepDeg;
-        int J2futStepM = (JangleOut[1] + J2axisLimNeg) * J2StepDeg;
-        int J3futStepM = (JangleOut[2] + J3axisLimNeg) * J3StepDeg;
-        int J4futStepM = (JangleOut[3] + J4axisLimNeg) * J4StepDeg;
-        int J5futStepM = (JangleOut[4] + J5axisLimNeg) * J5StepDeg;
-        int J6futStepM = (JangleOut[5] + J6axisLimNeg) * J6StepDeg;
+        int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
+        int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
+        int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
+        int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
+        int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
+        int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
 
         //calc delta from current to destination
         int J1stepDif = J1StepM - J1futStepM;

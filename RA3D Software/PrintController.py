@@ -25,6 +25,7 @@ class PrintController:
         # Parameters used for saving the last used coordinate information
         self.lastPos = Position(None,None,None,None,None,None,self.origin)
         self.printPos = Position(None,None,None,None,None,None,self.origin)
+        self.printParemeters = MoveParameters(10,5,5,15,0,"m") #10mm/s print speed
         self.lastF = 0.0
         self.lastE = 0.0
         self.currentInstruction = 0
@@ -123,7 +124,7 @@ class PrintController:
             return
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.printParemeters)
 
     def pausePrint(self):
         self.printing = False
@@ -199,6 +200,8 @@ class PrintController:
             self.root.statusPrint("End of program reached")
             self.currentInstruction = 0
             self.printing = False
+            #Move Home when complete
+            self.root.armController.moveHome()
             return
 
         lineToConvert = self.gcodeLines[self.currentInstruction] # Pull current line
@@ -211,7 +214,7 @@ class PrintController:
             return
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.printParemeters)
     def syncOrigin(self):
         self.origin = self.root.armController.origin
     def startPrintBedCalibration(self):
@@ -232,16 +235,16 @@ class PrintController:
         posStep = copy.deepcopy(currentCornerPos)
         posStep.z += 100
         point =posStep.GetAbsolute()
-        self.root.armController.sendMJ(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        self.root.armController.sendMJ(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],MoveParameters=self.printParemeters)
         while self.root.armController.awaitingMoveResponse:
             self.root.armController.moveUpdate()
         point =posStep.GetAbsolute()
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],MoveParameters=self.printParemeters)
         posStep.z +- 50
         while self.root.armController.awaitingMoveResponse:
             self.root.armController.moveUpdate()
         point = currentCornerPos.GetAbsolute()
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5])
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],MoveParameters=self.printParemeters)
         while self.root.armController.awaitingMoveResponse:
             self.root.armController.moveUpdate()
         self.bedCalStep += 1

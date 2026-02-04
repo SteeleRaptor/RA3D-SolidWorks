@@ -14,7 +14,7 @@ class TkWindow(Tk):
         # Set the window title
         self.title("RA3D Control Software")
         # (TEMP) Set window as topmost
-        self.attributes('-topmost', True)
+        # self.attributes('-topmost', True)
         self.updateDelay = 200 # Delay between update function calls in milliseconds
         # Set the window dimensions and position on screen
         w = 1200 # Window width
@@ -302,7 +302,9 @@ class TkWindow(Tk):
         self.calJ4Button.grid(row=2, column=0, padx=5, pady=5)
         self.calJ5Button.grid(row=2, column=1, padx=5, pady=5)
         self.calJ6Button.grid(row=2, column=2, padx=5, pady=5)
-
+        # ==== Open Post Calibration ====
+        self.postCalibrationButton = Button(self.calibrationFrame, text="Post Calibration", command=self.createPostCalibration)
+        self.postCalibrationButton.grid(row=4,column=0)
         # ==========| Tests Frame |==========
         self.armTestsFrame = Frame(self.armTab, highlightthickness=2, highlightbackground="#000000")
         self.armTestsFrame.grid(row=1, column=1, padx=5, pady=5, sticky=W+E+N+S)
@@ -659,6 +661,83 @@ class TkWindow(Tk):
         self.statusLabel.config(text=f"Status: {message}")
         # Also print the full message to the terminal
         self.terminalPrint(message)
+
+    def createPostCalibration(self):
+        # Create a new top-level window
+        popup = Toplevel(self.root)
+        popup.wm_title("Post Calibration")
+        ws = self.winfo_screenwidth() # Get screen width
+        hs = self.winfo_screenheight() # Get screen height
+        x = int((ws/2) - (200/2)) # Calculate x position for window to be in the center of the screen
+        y = int((hs/2) - (200/2)) # Calculate y position for window to be in the center of the screen
+        popup.geometry(f"250x300+{x}+{y}")
+        # Ensure the popup stays on top of the main window
+        popup.grab_set() 
+        popup.lift()
+        # Add widgets to the popup
+        label2 = Label(popup, text="Adjust calibration without limit switches.\n Works accumalatively")
+        label2.grid(row=1,column=0)
+        self.calOffsetFrameP = Frame(popup)
+        self.calOffsetFrameP.grid(row=2, column=0, padx=5, pady=5, sticky=W+E)
+        self.offsetLabel = Label(self.calOffsetFrameP, text="Joint Offsets:")
+        self.offsetLabel.grid(row=0, column=0, columnspan=5, padx=5, pady=5, sticky=W)
+        # Make the widgets
+        self.J1OffsetLabelP = Label(self.calOffsetFrameP,text="J1:")
+        self.J1OffsetEntryP = Entry(self.calOffsetFrameP, width=4)
+        self.J2OffsetLabelP = Label(self.calOffsetFrameP,text="J2:")
+        self.J2OffsetEntryP = Entry(self.calOffsetFrameP, width=4)
+        self.J3OffsetLabelP = Label(self.calOffsetFrameP,text="J3:")
+        self.J3OffsetEntryP = Entry(self.calOffsetFrameP, width=4)
+        self.J4OffsetLabelP = Label(self.calOffsetFrameP,text="J4:")
+        self.J4OffsetEntryP = Entry(self.calOffsetFrameP, width=4)
+        self.J5OffsetLabelP = Label(self.calOffsetFrameP,text="J5:")
+        self.J5OffsetEntryP = Entry(self.calOffsetFrameP, width=4)
+        self.J6OffsetLabelP = Label(self.calOffsetFrameP,text="J6:")
+        self.J6OffsetEntryP = Entry(self.calOffsetFrameP, width=4)
+        # Grid the widgets
+        self.J1OffsetLabelP.grid(row=1, column=0, padx=5, pady=5)
+        self.J1OffsetEntryP.grid(row=1, column=1, padx=5, pady=5)
+        self.J2OffsetLabelP.grid(row=1, column=2, padx=5, pady=5)
+        self.J2OffsetEntryP.grid(row=1, column=3, padx=5, pady=5)
+        self.J3OffsetLabelP.grid(row=1, column=4, padx=5, pady=5)
+        self.J3OffsetEntryP.grid(row=1, column=5, padx=5, pady=5)
+        self.J4OffsetLabelP.grid(row=2, column=0, padx=5, pady=5)
+        self.J4OffsetEntryP.grid(row=2, column=1, padx=5, pady=5)
+        self.J5OffsetLabelP.grid(row=2, column=2, padx=5, pady=5)
+        self.J5OffsetEntryP.grid(row=2, column=3, padx=5, pady=5)
+        self.J6OffsetLabelP.grid(row=2, column=4, padx=5, pady=5)
+        self.J6OffsetEntryP.grid(row=2, column=5, padx=5, pady=5)
+        # Auto fill a value of '0'
+        self.J1OffsetEntryP.insert(0, "0")
+        self.J2OffsetEntryP.insert(0, "0")
+        self.J3OffsetEntryP.insert(0, "0")
+        self.J4OffsetEntryP.insert(0, "0")
+        self.J5OffsetEntryP.insert(0, "0")
+        self.J6OffsetEntryP.insert(0, "0")
+
+        # Individual calibration buttons
+        self.indivCalPFrame = Frame(popup)
+        self.indivCalPFrame.grid(row=3, column=0, padx=5, pady=5, sticky=W+E)
+        # Label
+        self.indivCalPLabel = Label(self.indivCalPFrame, text="Individual Calibrations:")
+        self.indivCalPLabel.grid(row=0, column=0, columnspan=3, padx=5, pady=5, sticky=W)
+        # Make the buttons
+        self.calPJ1Button = Button(self.indivCalPFrame, text="Cal J1", command=lambda: self.armController.postCalibrateJoints(1, 0, 0, 0, 0, 0), width=7)
+        self.calPJ2Button = Button(self.indivCalPFrame, text="Cal J2", command=lambda: self.armController.postCalibrateJoints(0, 1, 0, 0, 0, 0), width=7)
+        self.calPJ3Button = Button(self.indivCalPFrame, text="Cal J3", command=lambda: self.armController.postCalibrateJoints(0, 0, 1, 0, 0, 0), width=7)
+        self.calPJ4Button = Button(self.indivCalPFrame, text="Cal J4", command=lambda: self.armController.postCalibrateJoints(0, 0, 0, 1, 0, 0), width=7)
+        self.calPJ5Button = Button(self.indivCalPFrame, text="Cal J5", command=lambda: self.armController.postCalibrateJoints(0, 0, 0, 0, 1, 0), width=7)
+        self.calPJ6Button = Button(self.indivCalPFrame, text="Cal J6", command=lambda: self.armController.postCalibrateJoints(0, 0, 0, 0, 0, 1), width=7)
+        # Place buttons
+        self.calPJ1Button.grid(row=1, column=0, padx=5, pady=5,)
+        self.calPJ2Button.grid(row=1, column=1, padx=5, pady=5)
+        self.calPJ3Button.grid(row=1, column=2, padx=5, pady=5)
+        self.calPJ4Button.grid(row=2, column=0, padx=5, pady=5)
+        self.calPJ5Button.grid(row=2, column=1, padx=5, pady=5)
+        self.calPJ6Button.grid(row=2, column=2, padx=5, pady=5)
+        # Add a button to close the popup
+        close_button = Button(popup, text="Close", command=popup.destroy)
+        close_button.pack(pady=10)
 
 if __name__ == "__main__":
     app = TkWindow()
