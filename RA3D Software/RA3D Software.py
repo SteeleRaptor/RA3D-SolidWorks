@@ -6,6 +6,7 @@ from datetime import datetime
 from SerialController import SerialController
 from ArmController import ArmController
 from PrintController import PrintController
+from TemperatureController import TemperatureController
 
 class TkWindow(Tk):
     def __init__(self):
@@ -29,6 +30,7 @@ class TkWindow(Tk):
         self.serialController = SerialController(self.root)
         self.armController = ArmController(self.root, self.serialController)
         self.printController = PrintController(self.root)
+        self.temperatureController = TemperatureController(self.root)
 
         # Create and draw widgets onto the window
         self.createTabs()
@@ -102,6 +104,29 @@ class TkWindow(Tk):
         # ==========| Temperatures Frame |==========
         self.temperatureFrame = Frame(self.printTab, highlightthickness=2, highlightbackground="#000000")
         self.temperatureFrame.grid(row=1, column=0, padx=5, pady=5, sticky=W+E+N+S)
+        # Hotend temperature displays
+        self.hotendLabel = Label(self.temperatureFrame, text="Hotend:")
+        self.hotendLabel.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky=W)
+        self.hotendTargetLabel = Label(self.temperatureFrame, text="Target:")
+        self.hotendTargetLabel.grid(row=1, column=0, padx=5, pady=5)
+        self.hotendTarget = Entry(self.temperatureFrame, width=5)
+        self.hotendTarget.grid(row=1, column=1, padx=5, pady=5)
+        self.hotendActualLabel = Label(self.temperatureFrame, text="Actual:")
+        self.hotendActualLabel.grid(row=2, column=0, padx=5, pady=5)
+        self.hotendActual = Label(self.temperatureFrame, text="xxx")
+        self.hotendActual.grid(row=2, column=1, padx=5, pady=5)
+
+        # Bed temperature displays
+        self.bedLabel = Label(self.temperatureFrame, text="Bed:")
+        self.bedLabel.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky=W)
+        self.bedTargetLabel = Label(self.temperatureFrame, text="Target:")
+        self.bedTargetLabel.grid(row=4, column=0, padx=5, pady=5)
+        self.bedTarget = Entry(self.temperatureFrame, width=5)
+        self.bedTarget.grid(row=4, column=1, padx=5, pady=5)
+        self.bedActualLabel = Label(self.temperatureFrame, text="Actual:")
+        self.bedActualLabel.grid(row=5, column=0, padx=5, pady=5)
+        self.bedActual = Label(self.temperatureFrame, text="xxx")
+        self.bedActual.grid(row=5, column=1, padx=5, pady=5)
 
         # ==========| Monitoring Frame |==========
         self.printMonitorFrame = Frame(self.printTab, highlightthickness=2, highlightbackground="#000000")
@@ -619,6 +644,9 @@ class TkWindow(Tk):
         if self.printController.printing:
             self.printController.printLoop()
         # ==========| PrintController |==========
+
+        # TODO: Temporary
+        self.temperatureController.updateTemp()
 
 
         # Set up another call to the update function after updateDelay milliseconds

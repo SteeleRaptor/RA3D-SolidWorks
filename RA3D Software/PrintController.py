@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import filedialog
 import os, re, copy, threading
 from ArmController import Position, Origin, MoveCommand,MoveParameters
+
 class PrintController:
     def __init__(self, root):
         self.root = root
@@ -225,6 +226,7 @@ class PrintController:
         self.bedCalStep = 1
         self.syncOrigin()
         self.nextBedCalibration()
+
     def nextBedCalibration(self):
         if self.bedCalibration == True:
             bedCalibrationThread = threading.Thread(target=self.bedCalibrationStep)
