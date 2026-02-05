@@ -3862,15 +3862,10 @@ void loop() {
       ////////MOVE COMPLETE///////////
     }
 
-
-
-
-
-
-
-
     //----- LIVE TOOL JOG  ---------------------------------------------------
     //-----------------------------------------------------------------------
+    //should investigate what this does
+    //seems like it varies the tool position in cartesian space and then uses inverse kinematics to move the robot to achieve that tool position
     if (function == "LT") {
       delay(5);
       Serial.println();
@@ -4107,6 +4102,7 @@ void loop() {
 
     //----- Jog T ---------------------------------------------------
     //-----------------------------------------------------------------------
+    //This function seems like it changes the tool a set distance
     if (function == "JT") {
       int J1dir;
       int J2dir;
@@ -4282,197 +4278,6 @@ void loop() {
       inData = "";  // Clear recieved buffer
       ////////MOVE COMPLETE///////////
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-    //----- MOVE V ------ VISION OFFSET ----------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "MV") {
-      int J1dir;
-      int J2dir;
-      int J3dir;
-      int J4dir;
-      int J5dir;
-      int J6dir;
-      int J7dir;
-      int J8dir;
-      int J9dir;
-
-      int J1axisFault = 0;
-      int J2axisFault = 0;
-      int J3axisFault = 0;
-      int J4axisFault = 0;
-      int J5axisFault = 0;
-      int J6axisFault = 0;
-      int J7axisFault = 0;
-      int J8axisFault = 0;
-      int J9axisFault = 0;
-      int TotalAxisFault = 0;
-
-      int xStart = inData.indexOf("X");
-      int yStart = inData.indexOf("Y");
-      int zStart = inData.indexOf("Z");
-      int rzStart = inData.indexOf("Rz");
-      int ryStart = inData.indexOf("Ry");
-      int rxStart = inData.indexOf("Rx");
-      int J7Start = inData.indexOf("J7");
-      int J8Start = inData.indexOf("J8");
-      int J9Start = inData.indexOf("J9");
-      int SPstart = inData.indexOf("S");
-      int AcStart = inData.indexOf("Ac");
-      int DcStart = inData.indexOf("Dc");
-      int RmStart = inData.indexOf("Rm");
-      int RndStart = inData.indexOf("Rnd");
-      int WristConStart = inData.indexOf("W");
-      int VisRotStart = inData.indexOf("Vr");
-      int LoopModeStart = inData.indexOf("Lm");
-
-      xyzuvw_PreKin[0] = inData.substring(xStart + 1, yStart).toFloat();
-      xyzuvw_PreKin[1] = inData.substring(yStart + 1, zStart).toFloat();
-      xyzuvw_PreKin[2] = inData.substring(zStart + 1, rzStart).toFloat();
-      xyzuvw_PreKin[3] = inData.substring(rzStart + 2, ryStart).toFloat();
-      xyzuvw_PreKin[4] = inData.substring(ryStart + 2, rxStart).toFloat();
-      xyzuvw_PreKin[5] = inData.substring(rxStart + 2, J7Start).toFloat();
-      J7_In = inData.substring(J7Start + 2, J8Start).toFloat();
-      J8_In = inData.substring(J8Start + 2, J9Start).toFloat();
-      J9_In = inData.substring(J9Start + 2, SPstart).toFloat();
-
-      String SpeedType = inData.substring(SPstart + 1, SPstart + 2);
-      float SpeedVal = inData.substring(SPstart + 2, AcStart).toFloat();
-      float ACCspd = inData.substring(AcStart + 2, DcStart).toFloat();
-      float DCCspd = inData.substring(DcStart + 2, RmStart).toFloat();
-      float ACCramp = inData.substring(RmStart + 2, RndStart).toFloat();
-      float Rounding = inData.substring(RndStart + 3, WristConStart).toFloat();
-      WristCon = inData.substring(WristConStart + 1, VisRotStart);
-      float VisRot = inData.substring(VisRotStart + 2, LoopModeStart).toFloat();
-      String LoopMode = inData.substring(LoopModeStart + 2);
-      LoopMode.trim();
-      J1LoopMode = LoopMode.substring(0, 1).toInt();
-      J2LoopMode = LoopMode.substring(1, 2).toInt();
-      J3LoopMode = LoopMode.substring(2, 3).toInt();
-      J4LoopMode = LoopMode.substring(3, 4).toInt();
-      J5LoopMode = LoopMode.substring(4, 5).toInt();
-      J6LoopMode = LoopMode.substring(5).toInt();
-
-      //get current tool rotation
-      float RXtool = Robot_Kin_Tool[5];
-
-
-      // offset tool rotation by the found vision angle
-      Robot_Kin_Tool[5] = Robot_Kin_Tool[5] - VisRot * M_PI / 180;
-
-      //solve kinematics
-      SolveInverseKinematics();
-
-      //calc destination motor steps
-      int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
-      int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
-      int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
-      int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
-      int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
-      int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
-      int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
-      int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
-      int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
-
-
-      //calc delta from current to destination
-      int J1stepDif = J1StepM - J1futStepM;
-      int J2stepDif = J2StepM - J2futStepM;
-      int J3stepDif = J3StepM - J3futStepM;
-      int J4stepDif = J4StepM - J4futStepM;
-      int J5stepDif = J5StepM - J5futStepM;
-      int J6stepDif = J6StepM - J6futStepM;
-      int J7stepDif = J7StepM - J7futStepM;
-      int J8stepDif = J8StepM - J8futStepM;
-      int J9stepDif = J9StepM - J9futStepM;
-
-      // put tool roation back where it was
-      Robot_Kin_Tool[5] = RXtool;
-
-      //determine motor directions
-      J1dir = (J1stepDif <= 0) ? 1 : 0;
-      J2dir = (J2stepDif <= 0) ? 1 : 0;
-      J3dir = (J3stepDif <= 0) ? 1 : 0;
-      J4dir = (J4stepDif <= 0) ? 1 : 0;
-      J5dir = (J5stepDif <= 0) ? 1 : 0;
-      J6dir = (J6stepDif <= 0) ? 1 : 0;
-      J7dir = (J7stepDif <= 0) ? 1 : 0;
-      J8dir = (J8stepDif <= 0) ? 1 : 0;
-      J9dir = (J9stepDif <= 0) ? 1 : 0;
-
-
-
-      //determine if requested position is within axis limits
-      if ((J1dir == 1 and (J1StepM + J1stepDif > J1StepLim)) or (J1dir == 0 and (J1StepM - J1stepDif < 0))) {
-        J1axisFault = 1;
-      }
-      if ((J2dir == 1 and (J2StepM + J2stepDif > J2StepLim)) or (J2dir == 0 and (J2StepM - J2stepDif < 0))) {
-        J2axisFault = 1;
-      }
-      if ((J3dir == 1 and (J3StepM + J3stepDif > J3StepLim)) or (J3dir == 0 and (J3StepM - J3stepDif < 0))) {
-        J3axisFault = 1;
-      }
-      if ((J4dir == 1 and (J4StepM + J4stepDif > J4StepLim)) or (J4dir == 0 and (J4StepM - J4stepDif < 0))) {
-        J4axisFault = 1;
-      }
-      if ((J5dir == 1 and (J5StepM + J5stepDif > J5StepLim)) or (J5dir == 0 and (J5StepM - J5stepDif < 0))) {
-        J5axisFault = 1;
-      }
-      if ((J6dir == 1 and (J6StepM + J6stepDif > J6StepLim)) or (J6dir == 0 and (J6StepM - J6stepDif < 0))) {
-        J6axisFault = 1;
-      }
-      //Removed because J7 is continous
-      //Removed because J7 is continous
-      if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
-        J8axisFault = 1;
-      }
-      if ((J9dir == 1 and (J9StepM + J9stepDif > J9StepLim)) or (J9dir == 0 and (J9StepM - J9stepDif < 0))) {
-        J9axisFault = 1;
-      }
-      TotalAxisFault = J1axisFault + J2axisFault + J3axisFault + J4axisFault + J5axisFault + J6axisFault + J7axisFault + J8axisFault + J9axisFault;
-
-
-      //send move command if no axis limit error
-      if (TotalAxisFault == 0 && KinematicError == 0) {
-        resetEncoders();
-        driveMotorsJ(abs(J1stepDif), abs(J2stepDif), abs(J3stepDif), abs(J4stepDif), abs(J5stepDif), abs(J6stepDif), abs(J7stepDif), abs(J8stepDif), abs(J9stepDif), J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
-        checkEncoders();
-        sendRobotPos();
-      } else if (KinematicError == 1) {
-        Alarm = "ER";
-        delay(5);
-        Serial.println(Alarm);
-        Alarm = "0";
-      } else {
-        Alarm = "EL" + String(J1axisFault) + String(J2axisFault) + String(J3axisFault) + String(J4axisFault) + String(J5axisFault) + String(J6axisFault) + String(J7axisFault) + String(J8axisFault) + String(J9axisFault);
-        delay(5);
-        Serial.println(Alarm);
-        Alarm = "0";
-      }
-
-
-
-      inData = "";  // Clear recieved buffer
-      ////////MOVE COMPLETE///////////
-    }
-
-
-
-
-
-
-
 
     //----- MOVE IN JOINTS ROTATION  ---------------------------------------------------
     //-----------------------------------------------------------------------
