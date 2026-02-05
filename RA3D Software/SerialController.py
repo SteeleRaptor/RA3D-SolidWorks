@@ -104,7 +104,38 @@ class SerialController:
                     break
         except queue.Empty:
             pass
-
+    #Function process response because correct response is not guaranteed for a command
+    def sortResponse(self, response):
+        self.root.terminalPrint(f"Received Response: {response}")
+        if response[0:1]== "ER":
+            self.root.statusPrint(f"Kinematic Error: {response[2:]}")
+            self.root.terminalPrint(f"Kinematic Error: {response[2:]}")
+        elif response[0:1] == "EL":
+            self.root.statusPrint(f"Error Axis Fault: {response[2:]}")
+            self.root.terminalPrint(f"Error Axis Fault: {response[2:]}")
+        elif response[0:2] == "TL":
+            #Limit switch test
+            pass
+        elif response[0:2] == "RE":
+            #read encoders
+            pass
+        elif response[0:4] == "Done":
+            #Home position finished
+            #Command set output on/off finished
+            #send position to arm
+            pass
+        elif response[0:2] == "WTDone":
+            self.root.statusPrint("Wait command finished")
+        elif response[0:2] == "echo":
+            self.root.statusPrint(f"Echo: {response[4:]}")
+        elif response[0] == "\n":
+            pass
+        elif response == "TurnHazardMoveStopped":
+            self.root.statusPrint(f"Encountered Hazard Move Stopped: {response[2:]}")
+        elif response[0:2] == "POS":
+            self.root.statusPrint("Position received from arm")
+        else:
+            self.root.statusPrint(f"Received Unrecognized Response: {response}")
     # Returns the last response received
     def getLastResponse(self):
         response = self.lastResponse

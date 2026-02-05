@@ -1241,7 +1241,7 @@ void sendRobotPos() {
 
   updatePos();
 
-  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
+  String sendPos = "POSA" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
   delay(5);
   Serial.println(sendPos);
   speedViolation = "0";
@@ -1252,7 +1252,7 @@ void sendRobotPosSpline() {
 
   updatePos();
 
-  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
+  String sendPos = "POSA" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
   delay(5);
   Serial.println(sendPos);
   speedViolation = "0";
@@ -1275,34 +1275,6 @@ void updatePos() {
   J9_pos = (J9StepM - J9zeroStep) / J9StepDeg;
 
   SolveFowardKinematics();
-}
-
-
-//Update Master step and send position through serial
-void correctRobotPos() {
-
-  J1StepM = J1encPos.read() / J1encMult;
-  J2StepM = J2encPos.read() / J2encMult;
-  J3StepM = J3encPos.read() / J3encMult;
-  J4StepM = J4encPos.read() / J4encMult;
-  J5StepM = J5encPos.read() / J5encMult;
-  J6StepM = J6encPos.read() / J6encMult;
-
-  JointAnglePreKin[0] = (J1StepM - J1zeroStep) / J1StepDeg;
-  JointAnglePreKin[1] = (J2StepM - J2zeroStep) / J2StepDeg;
-  JointAnglePreKin[2] = (J3StepM - J3zeroStep) / J3StepDeg;
-  JointAnglePreKin[3] = (J4StepM - J4zeroStep) / J4StepDeg;
-  JointAnglePreKin[4] = (J5StepM - J5zeroStep) / J5StepDeg;
-  JointAnglePreKin[5] = (J6StepM - J6zeroStep) / J6StepDeg;
-
-
-  SolveFowardKinematics();
-
-  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
-  delay(5);
-  Serial.println(sendPos);
-  speedViolation = "0";
-  flag = "";
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2812,7 +2784,7 @@ void loop() {
       if (digitalRead(J6calPin) == HIGH) {
         J6calTest = "1";
       }
-      String TestLim = " J1 = " + J1calTest + "   J2 = " + J2calTest + "   J3 = " + J3calTest + "   J4 = " + J4calTest + "   J5 = " + J5calTest + "   J6 = " + J6calTest;
+      String TestLim = "TL J1 = " + J1calTest + "   J2 = " + J2calTest + "   J3 = " + J3calTest + "   J4 = " + J4calTest + "   J5 = " + J5calTest + "   J6 = " + J6calTest;
       delay(5);
       Serial.println(TestLim);
     }
@@ -2840,7 +2812,7 @@ void loop() {
       J4EncSteps = J4encPos.read();
       J5EncSteps = J5encPos.read();
       J6EncSteps = J6encPos.read();
-      String Read = " J1 = " + String(J1EncSteps) + "   J2 = " + String(J2EncSteps) + "   J3 = " + String(J3EncSteps) + "   J4 = " + String(J4EncSteps) + "   J5 = " + String(J5EncSteps) + "   J6 = " + String(J6EncSteps);
+      String Read = "RE J1 = " + String(J1EncSteps) + "   J2 = " + String(J2EncSteps) + "   J3 = " + String(J3EncSteps) + "   J4 = " + String(J4EncSteps) + "   J5 = " + String(J5EncSteps) + "   J6 = " + String(J6EncSteps);
       delay(5);
       Serial.println(Read);
     }
@@ -2933,14 +2905,6 @@ void loop() {
       delay(5);
       Serial.println("Done");
     }
-
-
-    //-----COMMAND CORRECT POSITION---------------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "CP") {
-      correctRobotPos();
-    }
-
     //-----COMMAND UPDATE PARAMS---------------------------------------------------
     //-----------------------------------------------------------------------
     if (function == "UP") {
@@ -3361,7 +3325,7 @@ void loop() {
 
       String echo = "";
       delay(5);
-      Serial.println(inData);
+      Serial.println("echo "+inData);
     }
     //-----COMMAND TO CALIBRATE---------------------------------------------------
     //-----------------------------------------------------------------------
