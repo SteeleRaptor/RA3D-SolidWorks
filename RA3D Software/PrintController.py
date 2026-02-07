@@ -215,6 +215,7 @@ class PrintController:
             return
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
+
         self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.printParemeters)
     def syncOrigin(self):
         self.origin = self.root.armController.origin

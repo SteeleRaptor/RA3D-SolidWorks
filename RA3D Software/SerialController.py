@@ -66,7 +66,9 @@ class SerialController:
             self.boardConnected = True
             self.responseQueue = queue.Queue()
             self.serialThread = threading.Thread(target=self.serialReader, daemon=True)
+            self.sortThread = threading.Thread(target=self.sortResponseThread, daemon=True)
             self.serialThread.start()
+            self.sortThread.start()
             
         except SerialException:
             self.root.statusPrint(f"Failed to open port: {port}")
@@ -92,51 +94,72 @@ class SerialController:
             else:
                 time.sleep(0.05)
             self.checkResponseQueue()
-    
     def checkResponseQueue(self):
         # Check if there is anything in the response queue
         try:
-            while True:
-                if self.boardConnected:
+            if self.boardConnected:
+                if self.lastResponse is None:
+                    #trying to implement this as a queue that holds multiple responses
                     self.lastResponse = self.responseQueue.get_nowait()
-                    self.responseReady = True
-                    self.waitingForResponse = False
-                else:
-                    break
+                self.responseReady = True
+                #if an exception is not raised, then a response has been read in
+                self.waitingForResponse = False
         except queue.Empty:
             pass
+    
+    #Advances the response queue every 5 seconds
+    def sortResponseThread(self):
+        while True:
+            if self.responseReady:
+                response = self.getLastResponse()
+                self.sortResponse(response)
+            time.sleep(1)
+
     #Function process response because correct response is not guaranteed for a command
     def sortResponse(self, response):
         self.root.terminalPrint(f"Received Response: {response}")
-        if response[0:1]== "ER":
+        if response[:2]== "ER":
             self.root.statusPrint(f"Kinematic Error: {response[2:]}")
             self.root.terminalPrint(f"Kinematic Error: {response[2:]}")
-        elif response[0:1] == "EL":
+        elif response[:2] == "EL":
             self.root.statusPrint(f"Error Axis Fault: {response[2:]}")
             self.root.terminalPrint(f"Error Axis Fault: {response[2:]}")
-        elif response[0:2] == "TL":
-            #Limit switch test
-            pass
-        elif response[0:2] == "RE":
+        elif response[:2] == "TL":
+            if self.root.armController.testingLimitSwitches:
+                #Limit switch test
+                self.armController.limitTestUpdate()
+            else:
+                self.root.terminalPrint(f"Received Unexpected Response: {response}")
+        elif response[:2] == "RE":
             #read encoders
             pass
-        elif response[0:4] == "Done":
+        elif response[:4] == "Done":
             #Home position finished
             #Command set output on/off finished
             #send position to arm
             pass
-        elif response[0:2] == "WTDone":
+        elif response[:6] == "WTDone":
             self.root.statusPrint("Wait command finished")
-        elif response[0:2] == "echo":
+        elif response[:4] == "echo":
             self.root.statusPrint(f"Echo: {response[4:]}")
-        elif response[0] == "\n":
+        elif response == "\n":
             pass
         elif response == "TurnHazardMoveStopped":
             self.root.statusPrint(f"Encountered Hazard Move Stopped: {response[2:]}")
-        elif response[0:2] == "POS":
-            self.root.statusPrint("Position received from arm")
+        elif response[:3] == "POS" and self.root.armController.calibrationInProgress:
+            self.root.statusPrint("Position received from arm during calibration")
+            self.root.armController.calibrateArmUpdate(response=response)
+        elif response[:3] == "POS" and self.root.armController.awaitingMoveResponse:
+            self.root.statusPrint("Position received from arm after move command")
+            self.root.armController.moveUpdate(response=response)
+        elif response[:3] == "POS" and self.root.armController.awaitingPositionUpdate:
+            self.root.statusPrint("Position received from arm after position request")
+            self.root.armController.requestPositionUpdate(response=response)
+        elif response[:3] == "POS":
+            self.root.armController.processPosition(response)
         else:
             self.root.statusPrint(f"Received Unrecognized Response: {response}")
+    
     # Returns the last response received
     def getLastResponse(self):
         response = self.lastResponse

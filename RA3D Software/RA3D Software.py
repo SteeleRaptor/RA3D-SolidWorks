@@ -39,6 +39,9 @@ class TkWindow(Tk):
         # Set up a call to the update function after updateDelay milliseconds
         updateThread = threading.Thread(target=self.update)
         updateThread.start()
+        self.calibrationTimeout = threading.Thread(target=self.armController.calibrateTimeout)
+        self.moveTimeout = threading.Thread(target=self.armController.moveTimeout)
+        self.positionTimeout = threading.Thread(target=self.armController.processPositionTimeout)
 
     # Creates the interface tabs
     def createTabs(self):
@@ -631,23 +634,47 @@ class TkWindow(Tk):
 
         # ===========| ArmController |============
         # If arm calibration is in progress, call the calibration update function
+        # TODO Add calibration thread
         if self.armController.calibrationInProgress:
-            self.armController.calibrateArmUpdate()
+            #could timeout per stage or for whole calibration
+            
+            if self.calibrationTimeout.is_alive() == False:
+                self.calibrationTimeout.start()
+            if self.serialController.responseReady: 
+                response = self.serialController.getLastResponse()
+                self.serialController.sortResponse(response)
+            else:
+                self.armController.calibrateArmUpdate()
+            #sort serial
         if self.armController.awaitingMoveResponse:
-            self.armController.moveUpdate()
-        if self.armController.testingLimitSwitches:
-            self.armController.limitTestUpdate()
-        if self.armController.testingEncoders:
-            self.armController.encoderTestUpdate()
+            if self.moveTimeout.is_alive() == False:
+                self.moveTimeout.start()
+            if self.serialController.responseReady: 
+                response = self.serialController.getLastResponse()
+                self.serialController.sortResponse(response)
+            #self.armController.moveUpdate()
+            #sort serial
+        
         if self.armController.awaitingPosResponse:
-            self.armController.requestPositionUpdate()
+            if self.positionTimeout.is_alive() == False:
+                self.positionTimeout.start()
+            if self.serialController.responseReady:
+                response = self.serialController.getLastResponse()
+                self.serialController.sortResponse(response)
+        if self.armController.testingLimitSwitches:
+            if self.serialController.responseReady:
+                response = self.serialController.getLastResponse()
+                self.serialController.sortResponse(response)
+                #sort serial
+        if self.armController.testingEncoders:
+            if self.serialController.responseReady:
+                response = self.serialController.getResponse()
+                self.serialController.sortResponse(response)
+                #sort serial
+        
+        # ==========| PrintController |==========
         if self.printController.printing:
             self.printController.printLoop()
-        # ==========| PrintController |==========
-
-        # TODO: Temporary
-        self.temperatureController.updateTemp()
-
 
         # Set up another call to the update function after updateDelay milliseconds
         self.after(self.updateDelay, self.update)

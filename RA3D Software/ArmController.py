@@ -78,12 +78,12 @@ class ArmController:
         # Call the calibration update function
         self.calibrateArmUpdate()
 
-    def calibrateArmUpdate(self):
+    def calibrateArmUpdate(self,response=None):
         # Exit the function if calibration is not in progress and exit if so
         if self.calibrationInProgress is False:
             return
         # Check current state and perform associated tasks
-        if self.calibrationState is 1: # Send CalStage1
+        if self.calibrationState == 1: # Send CalStage1
             self.calibrateJoints(calJ1=self.calJStage1[0],
                                  calJ2=self.calJStage1[1],
                                  calJ3=self.calJStage1[2],
@@ -91,30 +91,20 @@ class ArmController:
                                  calJ5=self.calJStage1[4],
                                  calJ6=self.calJStage1[5])
             self.calibrationState = 2
-        elif self.calibrationState is 2: # Await CalStage1 Response & process when ready
+        elif self.calibrationState == 2: # Await CalStage1 Response & process when ready
             # Check if the serial controller has a response ready
-            if self.serialController.responseReady:
+            if response is not None:
                 # Save the response
-                response = self.serialController.getLastResponse()
                 # Check if the calibration was successful
-                if (response[:1] == 'A'):
-                    # Inform user of Stage 1 success
-                    self.root.statusPrint("Stage 1 Calibration Successful")
-                    # Process position response and dispaly
-                    self.processPosition(response)
-                    # Move to next state
-                    self.calibrationState = 3
-                else:
-                    # If not, inform user of Stage 1 Failure
-                    self.root.statusPrint("Stage 1 Calibration FAILED")
-                    # Exit calibration
-                    self.calibrationState = 0
-                    self.calibrationInProgress = False
-                    # Force arm calibration flag to False
-                    self.armCalibrated = False
+                # Inform user of Stage 1 success
+                self.root.statusPrint("Stage 1 Calibration Successful")
+                # Process position response and dispaly
+                self.processPosition(response)
+                # Move to next state
+                self.calibrationState = 3
                 # Print out the response received
                 self.root.terminalPrint(response)
-        elif self.calibrationState is 3: # Send CalStage2
+        elif self.calibrationState == 3: # Send CalStage2
             self.calibrateJoints(calJ1=self.calJStage2[0],
                                  calJ2=self.calJStage2[1],
                                  calJ3=self.calJStage2[2],
@@ -122,34 +112,54 @@ class ArmController:
                                  calJ5=self.calJStage2[4],
                                  calJ6=self.calJStage2[5])
             self.calibrationState = 4
-        elif self.calibrationState is 4: # Await CalStage2 Response & process when ready
+        elif self.calibrationState == 4: # Await CalStage2 Response & process when ready
             # Check if the serial controller has a response ready
-            if self.serialController.responseReady:
-                # Save the response
-                response = self.serialController.getLastResponse()
+            if response is not None:
                 # Check if the calibration was successful
-                if (response[:1] == 'A'):
-                    # Inform user of Stage 1 success
-                    self.root.statusPrint("Stage 2 Calibration Successful")
-                    # Process position response and dispaly
-                    self.processPosition(response)
+                # Inform user of Stage 1 success
+                self.root.statusPrint("Stage 2 Calibration Successful")
+                # Process position response and dispaly
+                self.processPosition(response)
 
-                    # Calibration complete
-                    self.calibrationState = 0
-                    # Calibration no longer in progress
-                    self.calibrationInProgress = False
-                    # Set arm calibration flag to True
-                    self.armCalibrated = True
-                else:
-                    # If not, inform user of Stage 2 Failure
-                    self.root.statusPrint("Stage 2 Calibration FAILED")
-                    # Exit calibration
-                    self.calibrationState = 0
-                    self.calibrationInProgress = False
-                    # Force arm calibration flag to False
-                    self.armCalibrated = False
+                # Calibration complete
+                self.calibrationState = 0
+                # Calibration no longer in progress
+                self.calibrationInProgress = False
+                # Set arm calibration flag to True
+                self.armCalibrated = True
                 # Print out the response received
                 self.root.terminalPrint(response)
+
+    #if no calibrate response
+    def calibrateTimeout(self):
+        time.sleep(35) #adjust
+        #if response for stage 1 hasn't come back yet
+        if self.calibrationState == 0:
+            return
+        if self.calibrationState == 1 or self.calibrationState == 2:
+            # If not, inform user of Stage 1 Failure
+            self.root.statusPrint(f"Stage 1 Calibration FAILED")
+            self.root.terminalPrint("Calibration timed out")
+            # Exit calibration
+            self.calibrationState = 0
+            self.calibrationInProgress = False
+            # Force arm calibration flag to False
+            self.armCalibrated = False
+            return
+        time.sleep(35)
+        #special case if stage 2 hasn't been sent yet
+        if self.calibrationState == 3:
+            time.sleep(2)
+        #if response for stage 2 hasn't come back yet
+        if self.calibrationState == 4:
+            # If not, inform user of Stage 2 Failure
+            self.root.statusPrint("Stage 2 Calibration FAILED")
+            # Exit calibration
+            self.calibrationState = 0
+            self.calibrationInProgress = False
+            # Force arm calibration flag to False
+            self.armCalibrated = False
+
 
     def calibrateJoints(self, calJ1=False, calJ2=False, calJ3=False, calJ4=False, calJ5=False, calJ6=False):
         self.getCalOffsets() # Update calibration offsets from entry fields
@@ -161,7 +171,7 @@ class ArmController:
             return "E"
         # Tell the serial controller to send the serial
         self.serialController.sendSerial(command)
-        self.awaitingMoveResponse = True
+
     def postCalibrateJoints(self, calJ1=False, calJ2=False, calJ3=False, calJ4=False, calJ5=False, calJ6=False):
         self.getPostCalOffsets() # Update calibration offsets from entry fields
         command = f"LEA{calJ1}B{calJ2}C{calJ3}D{calJ4}E{calJ5}F{calJ6}G0H0I0J{self.J1CalOffset}K{self.J2CalOffset}L{self.J3CalOffset}M{self.J4CalOffset}N{self.J5CalOffset}O{self.J6CalOffset}P0Q0\n"
@@ -244,6 +254,13 @@ class ArmController:
         self.root.J5CurCoord.config(text=self.curJ5, fg=jointColors[4])
         self.root.J6CurCoord.config(text=self.curJ6, fg=jointColors[5])
         self.updateDeltaFromOrigin()
+
+    def processPositionTimeout(self):
+        time.sleep(5)
+        if self.awaitingPosResponse is True:
+            self.root.statusPrint("Position response timed out")
+            self.awaitingPosResponse = False
+
     def getJointColors(self,J1,J2,J3,J4,J5,J6):
         if J1 == None:
             return ["#000000"]*6
@@ -336,7 +353,8 @@ class ArmController:
             return
         # Send the serial command
         self.serialController.sendSerial(str(command))
-        self.awaitingMoveResponse = True # Set the awaiting move response flag 
+        self.awaitingMoveResponse = True # Set the awaiting move response flag
+
     def populateMJ(self):
         self.root.xCoordEntry.delete(0, 'end')
         self.root.yCoordEntry.delete(0, 'end')
@@ -495,14 +513,13 @@ class ArmController:
         self.serialController.sendSerial(str(command))
         self.awaitingMoveResponse = True # Set the awaiting move response flag 
 
-    def moveUpdate(self):
+    def moveUpdate(self, response=None):
         # Return if we aren't awaiting a move response
         if self.awaitingMoveResponse is False:
             return
         # Check if the serial controller has a response ready
-        if self.serialController.responseReady:
-            # Get the response from the serial controller
-            response = self.serialController.getLastResponse()
+        # Get the response from the serial controller
+        if response is not None:
             self.root.terminalPrint(response)
             # Check if there was an error executing the move
             if (response[:1] == 'E'):
@@ -512,6 +529,12 @@ class ArmController:
                 self.root.statusPrint("Move command executed successfully")
                 self.processPosition(response)
             self.awaitingMoveResponse = False # Reset the flag
+    
+    def moveTimeout(self):
+        time.sleep(10)
+        if self.awaitingMoveResponse is True:
+            self.root.terminalPrint("Move response timed out")
+            self.awaitingMoveResponse = False
 
     def getCalOffsets(self):
         # Grab values from the entry fields, convert to integers, and save
@@ -543,15 +566,14 @@ class ArmController:
             self.root.limitTestButton.configure(relief="ridge") # Make the button look toggled
             self.root.statusPrint("Starting limit switch test")
 
-    def limitTestUpdate(self):
+    def limitTestUpdate(self,response=None):
         if self.awaitingTestResponse is False:
             self.serialController.sendSerial("TL\n") # Send instruction
             self.awaitingTestResponse = True # Set the flag
             return
         # Check if serial controller has a response ready
-        if self.serialController.responseReady:
+        if response is not None:
             # If so, read it in
-            response = self.serialController.getLastResponse()
             self.root.terminalPrint(response)
             # Limit switch test will never return an error so we can always directly process
             self.root.J1LimState.config(text=response[response.find('J1')+5:response.find("   J2")].strip())
@@ -634,20 +656,19 @@ class ArmController:
         self.serialController.sendSerial("RP\n") # Send instruction
         self.awaitingPosResponse = True # Set the flag
 
-    def requestPositionUpdate(self):
+    def requestPositionUpdate(self, response=None):
         # Return if we aren't awaiting a position response
         if self.awaitingPosResponse is False:
             return
         # Check if the serial controller has a response ready
-        if self.serialController.responseReady:
-            # Get the response from the serial controller
-            response = self.serialController.getLastResponse()
+        if response is not None:
             self.root.terminalPrint(response)
             # Inform user and process the position response
             self.root.statusPrint("Position request fulfilled")
             self.processPosition(response)
             # Reset the awaiting position respone flag
             self.awaitingPosResponse = False
+
     def setOpenLoop(self):
         self.defaultMoveParameters.setLoopMode(1)
         self.root.loopStatus.config(text="Open Loop")
