@@ -4,7 +4,18 @@
     Copyright (c) 2024, Chris Annin
     All rights reserved.
 */
-
+/* Outline
+1. Global variables and definitions
+2. Robot data structure and kinematics functions
+3. Motion control functions
+4. Command parsing and execution
+5. Setup function
+6. Closed Loop function
+----- Main loop ------
+1. Update parameters function
+2. Jog functions
+3. Move functions
+*/
 #include <math.h>
 #include <limits>
 #include <avr/pgmspace.h>
@@ -12,7 +23,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include <stdexcept>
-#include <ModbusMaster.h>
+
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wsequence-point"
@@ -67,9 +78,6 @@ const int J9calPin = 38;
 
 const int EstopPin = 39;
 
-
-
-
 //set encoder multiplier
 //all values were off by a factor of 2
 float J1encMult = 5;
@@ -88,9 +96,6 @@ Encoder J3encPos(19, 18);
 Encoder J4encPos(20, 21);
 Encoder J5encPos(23, 22);
 Encoder J6encPos(24, 25);
-
-ModbusMaster node;
-
 
 // GLOBAL VARS //
 
@@ -161,6 +166,7 @@ int J3StepLim = J3axisLim * J3StepDeg;
 int J4StepLim = J4axisLim * J4StepDeg;
 int J5StepLim = J5axisLim * J5StepDeg;
 int J6StepLim = J6axisLim * J6StepDeg;
+//Removed because J7 is continous
 //Removed because J7 is continous
 int J8StepLim = J8axisLim * J8StepDeg;
 int J9StepLim = J9axisLim * J9StepDeg;
@@ -246,6 +252,7 @@ String speedViolation = "0";
 float minSpeedDelay = 200;
 float maxMMperSec = 192;
 float linWayDistSP = 1; //waypoints per distance?
+float linWayDistSP = 1; //waypoints per distance?
 String debug = "";
 String flag = "";
 const int TRACKrotdir = 0;
@@ -266,7 +273,7 @@ int J5LoopMode;
 int J6LoopMode;
 
 //Variable for whether whole system is in closed loop
-int closedLoopTrue;
+int closedLoopTrue =1;
 
 #define ROBOT_nDOFs 6
 const int numJoints = 9;
@@ -1239,7 +1246,7 @@ void sendRobotPos() {
 
   updatePos();
 
-  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
+  String sendPos = "POSA" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
   delay(5);
   Serial.println(sendPos);
   speedViolation = "0";
@@ -1250,7 +1257,7 @@ void sendRobotPosSpline() {
 
   updatePos();
 
-  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
+  String sendPos = "POSA" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
   delay(5);
   Serial.println(sendPos);
   speedViolation = "0";
@@ -1273,34 +1280,6 @@ void updatePos() {
   J9_pos = (J9StepM - J9zeroStep) / J9StepDeg;
 
   SolveFowardKinematics();
-}
-
-
-//Update Master step and send position through serial
-void correctRobotPos() {
-
-  J1StepM = J1encPos.read() / J1encMult;
-  J2StepM = J2encPos.read() / J2encMult;
-  J3StepM = J3encPos.read() / J3encMult;
-  J4StepM = J4encPos.read() / J4encMult;
-  J5StepM = J5encPos.read() / J5encMult;
-  J6StepM = J6encPos.read() / J6encMult;
-
-  JointAnglePreKin[0] = (J1StepM - J1zeroStep) / J1StepDeg;
-  JointAnglePreKin[1] = (J2StepM - J2zeroStep) / J2StepDeg;
-  JointAnglePreKin[2] = (J3StepM - J3zeroStep) / J3StepDeg;
-  JointAnglePreKin[3] = (J4StepM - J4zeroStep) / J4StepDeg;
-  JointAnglePreKin[4] = (J5StepM - J5zeroStep) / J5StepDeg;
-  JointAnglePreKin[5] = (J6StepM - J6zeroStep) / J6StepDeg;
-
-
-  SolveFowardKinematics();
-
-  String sendPos = "A" + String(JointAnglePreKin[0], 3) + "B" + String(JointAnglePreKin[1], 3) + "C" + String(JointAnglePreKin[2], 3) + "D" + String(JointAnglePreKin[3], 3) + "E" + String(JointAnglePreKin[4], 3) + "F" + String(JointAnglePreKin[5], 3) + "G" + String(xyzuvw_PostKin[0], 3) + "H" + String(xyzuvw_PostKin[1], 3) + "I" + String(xyzuvw_PostKin[2], 3) + "J" + String(xyzuvw_PostKin[3], 3) + "K" + String(xyzuvw_PostKin[4], 3) + "L" + String(xyzuvw_PostKin[5], 3) + "M" + speedViolation + "N" + debug + "O" + flag + "P" + J7_pos + "Q" + J8_pos + "R" + J9_pos;
-  delay(5);
-  Serial.println(sendPos);
-  speedViolation = "0";
-  flag = "";
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1754,6 +1733,7 @@ void driveMotorsJ(int J1step, int J2step, int J3step, int J4step, int J5step, in
 //DRIVE MOTORS G
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //drive motors G does not use acceleration but does use speed
+//drive motors G does not use acceleration but does use speed
 void driveMotorsG(int J1step, int J2step, int J3step, int J4step, int J5step, int J6step, int J7step, int J8step, int J9step, int J1dir, int J2dir, int J3dir, int J4dir, int J5dir, int J6dir, int J7dir, int J8dir, int J9dir, String SpeedType, float SpeedVal, float ACCspd, float DCCspd, float ACCramp) {
   int steps[] = { J1step, J2step, J3step, J4step, J5step, J6step, J7step, J8step, J9step };
   int dirs[] = { J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir };
@@ -1891,6 +1871,7 @@ void driveMotorsG(int J1step, int J2step, int J3step, int J4step, int J5step, in
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //DRIVE MOTORS L
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//DrivemotorsL does not use speed, acceleration etc., Runs at a constant speed
 //DrivemotorsL does not use speed, acceleration etc., Runs at a constant speed
 void driveMotorsL(int J1step, int J2step, int J3step, int J4step, int J5step, int J6step, int J7step, int J8step, int J9step, int J1dir, int J2dir, int J3dir, int J4dir, int J5dir, int J6dir, int J7dir, int J8dir, int J9dir, float curDelay) {
   // Array of steps, directions, pins, motor directions, and step counters
@@ -2091,7 +2072,12 @@ void moveJ(String inData, bool response, bool precalc, bool simspeed) {
   int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
   int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
   int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
-
+  J1TargetStep = J1futStepM;
+  J2TargetStep = J2futStepM;
+  J3TargetStep = J3futStepM;
+  J4TargetStep = J4futStepM;
+  J5TargetStep = J5futStepM;
+  J6TargetStep = J6futStepM;
   if (precalc) {
     J1StepM = J1futStepM;
     J2StepM = J2futStepM;
@@ -2131,6 +2117,7 @@ void moveJ(String inData, bool response, bool precalc, bool simspeed) {
     int dir[numJoints] = { J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir };
     int StepM[numJoints] = { J1StepM, J2StepM, J3StepM, J4StepM, J5StepM, J6StepM, J7StepM, J8StepM, J9StepM };
     int stepDif[numJoints] = { J1stepDif, J2stepDif, J3stepDif, J4stepDif, J5stepDif, J6stepDif, J7stepDif, J8stepDif, J9stepDif };
+    int StepLim[numJoints] = { J1StepLim, J2StepLim, J3StepLim, J4StepLim, J5StepLim, J6StepLim, 0, J8StepLim, J9StepLim };
     int StepLim[numJoints] = { J1StepLim, J2StepLim, J3StepLim, J4StepLim, J5StepLim, J6StepLim, 0, J8StepLim, J9StepLim };
     int axisFault[numJoints] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
@@ -2191,81 +2178,6 @@ void moveJ(String inData, bool response, bool precalc, bool simspeed) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //COMMUNICATIONS
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-int32_t modbusQuerry(String inData, int function) {
-  int32_t result;
-  int32_t response;
-  int32_t response2;
-  int slaveIdIndex = inData.indexOf('A');
-  int MBaddressIndex = inData.indexOf('B');
-  int MBvalIndex = inData.indexOf('C');
-  int SlaveID = inData.substring(slaveIdIndex + 1, MBaddressIndex).toInt();
-  int MBaddress = inData.substring(MBaddressIndex + 1, MBvalIndex).toInt();
-  int MBval = inData.substring(MBvalIndex + 1).toInt();
-  node = ModbusMaster();
-  node.begin(SlaveID, Serial8);
-  if (function == 1) {
-    result = node.readCoils(MBaddress, 1);
-    if (result == node.ku8MBSuccess) {
-      response = node.getResponseBuffer(0);
-      return response;
-    } else {
-      response = -1;
-      return response;
-    }
-  } else if (function == 2) {
-    result = node.readDiscreteInputs(MBaddress, 1);
-    if (result == node.ku8MBSuccess) {
-      response = node.getResponseBuffer(0);
-      return response;
-    } else {
-      response = -1;
-      return response;
-    }
-  } else if (function == 3) {
-    result = node.readHoldingRegisters(MBaddress, MBval);
-    if (result == node.ku8MBSuccess) {
-      response = node.getResponseBuffer(0);
-      return response;
-    } else {
-      response = -1;
-      return response;
-    }
-  } else if (function == 4) {
-    result = node.readInputRegisters(MBaddress, MBval);
-    if (result == node.ku8MBSuccess) {
-      response = node.getResponseBuffer(0);
-      return response;
-    } else {
-      response = -1;
-      return response;
-    }
-  } else if (function == 15) {
-    result = node.writeSingleCoil(MBaddress, MBval);
-    if (result == node.ku8MBSuccess) {
-      response = 1;
-      return response;
-    } else {
-      response = -1;
-      return response;
-    }
-  } else if (function == 6) {
-    result = node.writeSingleRegister(MBaddress, MBval);
-    if (result == node.ku8MBSuccess) {
-      response = 1;
-      return response;
-    } else {
-      response = -1;
-      return response;
-    }
-  } else {
-    response = -1;
-    return response;
-  }
-}
-
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2372,11 +2284,6 @@ void setup() {
   // run once:
   Serial.begin(9600);
   Serial8.begin(38400);  // Use Serial8 (pins 34 and 35)
-  // Initialize Modbus communication
-  node.begin(1, Serial8);
-
-
-
   pinMode(J1stepPin, OUTPUT);
   pinMode(J1dirPin, OUTPUT);
   pinMode(J2stepPin, OUTPUT);
@@ -2435,12 +2342,38 @@ void setup() {
 }
 void closedLoop(){
   //Need better check
-  if J1TargetStep = 0{
-    return
+  if (J1TargetStep == 0){
+    return;
   }
+  int J1dir;
+  int J2dir;
+  int J3dir;
+  int J4dir;
+  int J5dir;
+  int J6dir;
+  int J7dir;
+  int J8dir;
+  int J9dir;
+
+  int J1axisFault = 0;
+  int J2axisFault = 0;
+  int J3axisFault = 0;
+  int J4axisFault = 0;
+  int J5axisFault = 0;
+  int J6axisFault = 0;
+  int J8axisFault = 0;
+  int J9axisFault = 0;
+  int TotalAxisFault = 0;
+
+  int J1Move = 1;
+  int J2Move = 1;
+  int J3Move = 1;
+  int J4Move = 1;
+  int J5Move = 1;
+  int J6Move = 1;
   //read latest position for accuracy
-  readEncoders()
-  
+  readEncoders();
+
   //calc delta from current to destination
   int J1stepDif = J1StepM - J1TargetStep;
   int J2stepDif = J2StepM - J2TargetStep;
@@ -2454,30 +2387,37 @@ void closedLoop(){
   int J9stepDif = 0;
 
   //check if motors are at target position within a tolerance
-  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
-    J1StepDiff = 0;
+  /*if (abs(J1encPos.read()/J1encMult-J1TargetStep) > encoderCLTolerance) {
     int J1Move = 1;
+  } else {
+    J1stepDif = 0;
   }
-  if abs(J2encPos.read()/J2encMult-J2StepM) < encoderCLTolerance{
-    J1StepDiff = 0;
-    int J1Move = 1;
+  if (abs(J2encPos.read()/J2encMult-J2TargetStep) > encoderCLTolerance){
+    int J2Move = 1;
+  } else {
+    J2stepDif = 0;
   }
-  if abs(J1encPos.read()/J3encMult-J13tepM) < encoderCLTolerance{
-    J1StepDiff = 0;
-    int J1Move = 1;
+  if (abs(J3encPos.read()/J3encMult-J3TargetStep) > encoderCLTolerance){
+    int J3Move = 1;
+  } else {
+    J3stepDif = 0;
   }
-  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
-    J1StepDiff = 0;
-    int J1Move = 1;
+  if (abs(J4encPos.read()/J4encMult-J4TargetStep) > encoderCLTolerance){
+    int J4Move = 1;
+  } else {
+    J4stepDif = 0;
   }
-  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
-    J1StepDiff = 0;
-    int J1Move = 1;
+  if (abs(J5encPos.read()/J5encMult-J5TargetStep) > encoderCLTolerance){
+    int J5Move = 1;
+  } else {
+    J5stepDif = 0;
   }
-  if abs(J1encPos.read()/J1encMult-J1StepM) < encoderCLTolerance{
-    J1StepDiff = 0;
-    int J1Move = 1;
-  }
+  if (abs(J6encPos.read()/J6encMult-J6TargetStep) > encoderCLTolerance){
+    int J6Move = 1;
+  } else {
+    J6stepDif = 0;
+  }*/
+  Serial.println("Step Difs: " + String(J1stepDif) + ", " + String(J2stepDif) + ", " + String(J3stepDif) + ", " + String(J4stepDif) + ", " + String(J5stepDif) + ", " + String(J6stepDif));
   //determine motor directions
   J1dir = (J1stepDif <= 0) ? 1 : 0;
   J2dir = (J2stepDif <= 0) ? 1 : 0;
@@ -2510,15 +2450,16 @@ void closedLoop(){
     J6axisFault = 1;
   }
   //Removed because J7 is continous
+  //Removed because J7 is continous
   if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
     J8axisFault = 1;
   }
   if ((J9dir == 1 and (J9StepM + J9stepDif > J9StepLim)) or (J9dir == 0 and (J9StepM - J9stepDif < 0))) {
     J9axisFault = 1;
   }
-  TotalAxisFault = J1axisFault + J2axisFault + J3axisFault + J4axisFault + J5axisFault + J6axisFault + J7axisFault + J8axisFault + J9axisFault;
+  TotalAxisFault = J1axisFault + J2axisFault + J3axisFault + J4axisFault + J5axisFault + J6axisFault + J8axisFault + J9axisFault;
 
-  float SpeedType = "p";
+  String SpeedType = "p";
   float SpeedVal = 25;
   float ACCspd = 0;
   float DCCspd = 0;
@@ -2527,8 +2468,9 @@ void closedLoop(){
   if (TotalAxisFault == 0 && KinematicError == 0 && TotalCollision == 0) {
     resetEncoders();//reset collision detecion
     //drive motors if any motor has to move
-    if J1Move || J2Move || J3Move || J4Move || J5Move || J6Move{
+    if (J1Move || J2Move || J3Move || J4Move || J5Move || J6Move){
       driveMotorsJ(abs(J1stepDif), abs(J2stepDif), abs(J3stepDif), abs(J4stepDif), abs(J5stepDif), abs(J6stepDif), J7stepDif, J8stepDif, J9stepDif, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
+      sendRobotPos();//send robot position only if changed
     }
     checkEncoders();//check for collision
     
@@ -2537,11 +2479,10 @@ void closedLoop(){
     delay(5);
     Serial.println(Alarm);
   } else {
-    Alarm = "EL" + String(J1axisFault) + String(J2axisFault) + String(J3axisFault) + String(J4axisFault) + String(J5axisFault) + String(J6axisFault) + String(J7axisFault) + String(J8axisFault) + String(J9axisFault);
+    Alarm = "EL" + String(J1axisFault) + String(J2axisFault) + String(J3axisFault) + String(J4axisFault) + String(J5axisFault) + String(J6axisFault) + String(J8axisFault) + String(J9axisFault);
     delay(5);
     Serial.println(Alarm);
   }
-  sendRobotPos();//send robot position
 }
 
 void loop() {
@@ -2552,8 +2493,8 @@ void loop() {
   if (splineEndReceived == false) {
     processSerial();
   }
-  if closedLoopTrue{
-    closedLoop()
+  if (closedLoopTrue){
+    closedLoop();
   }
   //dont start unless at least one command has been read in
   if (cmdBuffer1 != "") {
@@ -2565,189 +2506,6 @@ void loop() {
     inData = inData.substring(2);
     KinematicError = 0;
     debug = "";
-
-
-    //-----MODBUS READ HOLDING REGISTER - FUNCTION 03--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "BA") {
-      int32_t result = modbusQuerry(inData, 3);
-      if (result == -1) {
-        Serial.println("Modbus Error");
-      } else {
-        Serial.println(result);
-      }
-    }
-
-
-    //-----MODBUS READ COIL - FUNCTION 01--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "BB") {
-      int32_t result = modbusQuerry(inData, 1);
-      if (result == -1) {
-        Serial.println("Modbus Error");
-      } else {
-        Serial.println(result);
-      }
-    }
-
-    //-----MODBUS READ INPUT - FUNCTION 02--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "BC") {
-      int32_t result = modbusQuerry(inData, 2);
-      if (result == -1) {
-        Serial.println("Modbus Error");
-      } else {
-        Serial.println(result);
-      }
-    }
-
-    //-----MODBUS READ INPUT REGISTER - FUNCTION 04--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "BD") {
-      int32_t result = modbusQuerry(inData, 4);
-      if (result == -1) {
-        Serial.println("Modbus Error");
-      } else {
-        Serial.println(result);
-      }
-    }
-
-    //-----MODBUS WRITE COIL - FUNCTION 15--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "BE") {
-      int32_t result = modbusQuerry(inData, 15);
-      if (result == -1) {
-        Serial.println("Modbus Error");
-      } else {
-        Serial.println("Write Success");
-      }
-    }
-
-    //-----MODBUS WRITE REGISTER - FUNCTION 6--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "BF") {
-      int32_t result = modbusQuerry(inData, 6);
-      if (result == -1) {
-        Serial.println("Modbus Error");
-      } else {
-        Serial.println("Write Success");
-      }
-    }
-
-
-
-
-
-    //-----QUERRY DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "MQ") {
-      uint8_t result;
-      int16_t highRegister;
-
-      // Modbus read
-      result = node.readHoldingRegisters(0x1207, 2);
-
-      if (result == node.ku8MBSuccess) {
-
-        highRegister = node.getResponseBuffer(0);
-        Serial.println(highRegister);
-
-      } else {
-        Serial.println("Modbus error: ");
-        //Serial.println(result, HEX);
-      }
-
-      delay(1000);
-    }
-
-    //-----HOME MOTOR DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "HD") {
-      uint8_t result;
-
-      // Address and value to write
-      uint16_t registerAddress1 = 0x020D;  // P0213 - DI3
-      uint16_t registerAddress2 = 0x020C;  // P0212 - DI2
-      //uint16_t registerAddress = 0x1207;  // P1807 - absolute position counter
-      uint16_t valueOn = 1;   // Value to write to the register
-      uint16_t valueOff = 0;  // Value to write to the register
-
-      // Write the value to the register
-      result = node.writeSingleRegister(registerAddress1, valueOn);
-      delay(50);
-      result = node.writeSingleRegister(registerAddress2, valueOn);
-      delay(50);
-      result = node.writeSingleRegister(registerAddress1, valueOff);
-      delay(50);
-      result = node.writeSingleRegister(registerAddress2, valueOff);
-
-      if (result == node.ku8MBSuccess) {
-        Serial.println("Write successful");
-      } else {
-        //Serial.println("Modbus Error: ");
-        Serial.println(result, HEX);
-      }
-
-      delay(50);
-    }
-
-    //-----RESET DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "RR") {
-      uint8_t result;
-
-      // Address and value to write
-      uint16_t registerAddress1 = 0x020D;  // P0213 - DI3 INPUT
-      uint16_t registerAddress2 = 0x0203;  // P0203 - DI3 FUNCTION SELECTION
-
-      uint16_t valueOn = 1;
-      uint16_t valueOff = 0;
-      uint16_t homingMode = 33;
-      uint16_t resetMode = 2;
-
-
-      result = node.writeSingleRegister(registerAddress2, resetMode);
-      delay(50);
-      result = node.writeSingleRegister(registerAddress1, valueOn);
-      delay(50);
-      result = node.writeSingleRegister(registerAddress2, homingMode);
-      delay(50);
-
-
-      if (result == node.ku8MBSuccess) {
-        Serial.println("Write successful");
-      } else {
-        Serial.println("fail");
-      }
-
-      delay(50);
-    }
-
-    //-----RESET DRIVE MODBUS--------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "FR") {
-      uint8_t result;
-
-      // Address and value to write
-      uint16_t registerAddress1 = 0x0B01;  // P1101 - fault reset
-
-      uint16_t valueOn = 1;
-      uint16_t valueOff = 0;
-
-      result = node.writeSingleRegister(registerAddress1, valueOn);
-      delay(50);
-      result = node.writeSingleRegister(registerAddress1, valueOff);
-      delay(50);
-
-
-      if (result == node.ku8MBSuccess) {
-        Serial.println("Write successful");
-      } else {
-        Serial.println("fail");
-      }
-
-      delay(50);
-    }
 
     //-----SPLINE START------------------------------------------------------
     //-----------------------------------------------------------------------
@@ -2806,7 +2564,7 @@ void loop() {
       if (digitalRead(J6calPin) == HIGH) {
         J6calTest = "1";
       }
-      String TestLim = " J1 = " + J1calTest + "   J2 = " + J2calTest + "   J3 = " + J3calTest + "   J4 = " + J4calTest + "   J5 = " + J5calTest + "   J6 = " + J6calTest;
+      String TestLim = "TL J1 = " + J1calTest + "   J2 = " + J2calTest + "   J3 = " + J3calTest + "   J4 = " + J4calTest + "   J5 = " + J5calTest + "   J6 = " + J6calTest;
       delay(5);
       Serial.println(TestLim);
     }
@@ -2834,7 +2592,7 @@ void loop() {
       J4EncSteps = J4encPos.read();
       J5EncSteps = J5encPos.read();
       J6EncSteps = J6encPos.read();
-      String Read = " J1 = " + String(J1EncSteps) + "   J2 = " + String(J2EncSteps) + "   J3 = " + String(J3EncSteps) + "   J4 = " + String(J4EncSteps) + "   J5 = " + String(J5EncSteps) + "   J6 = " + String(J6EncSteps);
+      String Read = "RE J1 = " + String(J1EncSteps) + "   J2 = " + String(J2EncSteps) + "   J3 = " + String(J3EncSteps) + "   J4 = " + String(J4EncSteps) + "   J5 = " + String(J5EncSteps) + "   J6 = " + String(J6EncSteps);
       delay(5);
       Serial.println(Read);
     }
@@ -2927,14 +2685,6 @@ void loop() {
       delay(5);
       Serial.println("Done");
     }
-
-
-    //-----COMMAND CORRECT POSITION---------------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "CP") {
-      correctRobotPos();
-    }
-
     //-----COMMAND UPDATE PARAMS---------------------------------------------------
     //-----------------------------------------------------------------------
     if (function == "UP") {
@@ -3152,6 +2902,7 @@ void loop() {
       J9rot = inData.substring(J9rotStart + 1, J9stepsStart).toFloat();
       J9steps = inData.substring(J9stepsStart + 1).toFloat();
       
+      
       J7StepDeg = J7steps / J7rot;
 
       J8axisLimNeg = 0;
@@ -3222,89 +2973,6 @@ void loop() {
       Serial.println("Done");
     }
 
-    //-----COMMAND TO WAIT MODBUS COIL---------------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "WJ") {
-      int32_t result = -2;
-      String MBquery = "";
-      int slaveIndex = inData.indexOf('A');
-      int inputIndex = inData.indexOf('B');
-      int valueIndex = inData.indexOf('C');
-      int timoutIndex = inData.indexOf('D');
-      int slaveID = inData.substring(slaveIndex + 1, inputIndex).toInt();
-      int input = inData.substring(inputIndex + 1, valueIndex).toInt();
-      int value = inData.substring(valueIndex + 1, timoutIndex).toInt();
-      int timeout = inData.substring(timoutIndex + 1).toInt();
-      unsigned long timeoutMillis = timeout * 1000;
-      unsigned long startTime = millis();
-      MBquery = "A" + String(slaveID) + "B" + String(input) + "C1";
-      while ((millis() - startTime < timeoutMillis) && (result != value)) {
-        result = modbusQuerry(MBquery, 1);
-        delay(100);
-      }
-      delay(5);
-      Serial.print("Done");
-    }
-
-    //-----COMMAND TO WAIT MODBUS INPUT---------------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "WK") {
-      int32_t result = -2;
-      String MBquery = "";
-      int slaveIndex = inData.indexOf('A');
-      int inputIndex = inData.indexOf('B');
-      int valueIndex = inData.indexOf('C');
-      int timoutIndex = inData.indexOf('D');
-      int slaveID = inData.substring(slaveIndex + 1, inputIndex).toInt();
-      int input = inData.substring(inputIndex + 1, valueIndex).toInt();
-      int value = inData.substring(valueIndex + 1, timoutIndex).toInt();
-      int timeout = inData.substring(timoutIndex + 1).toInt();
-      unsigned long timeoutMillis = timeout * 1000;
-      unsigned long startTime = millis();
-      MBquery = "A" + String(slaveID) + "B" + String(input) + "C1";
-      while ((millis() - startTime < timeoutMillis) && (result != value)) {
-        result = modbusQuerry(MBquery, 2);
-        delay(100);
-      }
-      delay(5);
-      Serial.print("Done");
-    }
-
-    //-----COMMAND TO SET MODBUS COIL---------------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "SC") {
-      int32_t result = -2;
-      String MBquery = "";
-      int slaveIndex = inData.indexOf('A');
-      int inputIndex = inData.indexOf('B');
-      int valueIndex = inData.indexOf('C');
-      int slaveID = inData.substring(slaveIndex + 1, inputIndex).toInt();
-      int input = inData.substring(inputIndex + 1, valueIndex).toInt();
-      int value = inData.substring(valueIndex + 1).toInt();
-      MBquery = "A" + String(slaveID) + "B" + String(input) + "C" + String(value);
-      result = modbusQuerry(MBquery, 15);
-      delay(5);
-      Serial.println(result);
-    }
-
-    //-----COMMAND TO SET MODBUS OUTPUT REGISTER---------------------------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "SO") {
-      int32_t result = -2;
-      String MBquery = "";
-      int slaveIndex = inData.indexOf('A');
-      int inputIndex = inData.indexOf('B');
-      int valueIndex = inData.indexOf('C');
-      int slaveID = inData.substring(slaveIndex + 1, inputIndex).toInt();
-      int input = inData.substring(inputIndex + 1, valueIndex).toInt();
-      int value = inData.substring(valueIndex + 1).toInt();
-      MBquery = "A" + String(slaveID) + "B" + String(input) + "C" + String(value);
-      result = modbusQuerry(MBquery, 6);
-      delay(5);
-      Serial.println(result);
-    }
-
-
     //-----COMMAND SEND POSITION---------------------------------------------------
     //-----------------------------------------------------------------------
     if (function == "SP") {
@@ -3354,7 +3022,7 @@ void loop() {
 
       String echo = "";
       delay(5);
-      Serial.println(inData);
+      Serial.println("echo "+inData);
     }
     //-----COMMAND TO CALIBRATE---------------------------------------------------
     //-----------------------------------------------------------------------
@@ -3439,6 +3107,7 @@ void loop() {
 
       int Jreq[9] = { J1req, J2req, J3req, J4req, J5req, J6req, J7req, J8req, J9req };
       int JStepLim[9] = { J1StepLim, J2StepLim, J3StepLim, J4StepLim, J5StepLim, J6StepLim, 0, J8StepLim, J9StepLim };
+      int JStepLim[9] = { J1StepLim, J2StepLim, J3StepLim, J4StepLim, J5StepLim, J6StepLim, 0, J8StepLim, J9StepLim };
       int JcalPin[9] = { J1calPin, J2calPin, J3calPin, J4calPin, J5calPin, J6calPin, J7calPin, J8calPin, J9calPin };
       int JStep[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
@@ -3451,9 +3120,6 @@ void loop() {
       //--CALL FUNCT TO DRIVE TO LIMITS--
       SpeedIn = 40;
       driveLimit(JStep, SpeedIn);
-
-
-
 
       //set master steps and center step
       //Master step starts at limit switch position
@@ -3513,7 +3179,6 @@ void loop() {
           J6StepM = (0 + J6calBaseOff + J6calOff) * J6StepDeg;
           J6stepCen = ((J6axisLimNeg)-J6calBaseOff - J6calOff) * J6StepDeg;
         }
-      }
       }
       if (J8req == 1) {
         if (J8CalDir == 1) {
@@ -3597,6 +3262,12 @@ void loop() {
       float SpeedVal = 50;
       float ACCramp = 50;
       setEncoders();
+      /*J1TargetStep = J1stepCen;
+      J2TargetStep = J2stepCen;
+      J3TargetStep = J3stepCen;
+      J4TargetStep = J4stepCen;
+      J5TargetStep = J5step90;
+      J6TargetStep = J6stepCen;*/
       driveMotorsJ(J1stepCen, J2stepCen, J3stepCen, J4stepCen, J5step90, J6stepCen, J7stepCen, J8stepCen, J9stepCen, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
       sendRobotPos();
       inData = "";  // Clear recieved buffer
@@ -3649,7 +3320,7 @@ void loop() {
       float J7calOffExtra = inData.substring(J7calstart + 1, J8calstart).toFloat();
       float J8calOffExtra = inData.substring(J8calstart + 1, J9calstart).toFloat();
       float J9calOffExtra = inData.substring(J9calstart + 1).toFloat();
-      /
+    
       ///
       int J1Step = 0;
       int J2Step = 0;
@@ -3684,6 +3355,7 @@ void loop() {
 
       int Jreq[9] = { J1req, J2req, J3req, J4req, J5req, J6req, J7req, J8req, J9req };
       int JStepLim[9] = { J1StepLim, J2StepLim, J3StepLim, J4StepLim, J5StepLim, J6StepLim, 0, J8StepLim, J9StepLim };
+      int JStepLim[9] = { J1StepLim, J2StepLim, J3StepLim, J4StepLim, J5StepLim, J6StepLim, 0, J8StepLim, J9StepLim };
       int JcalPin[9] = { J1calPin, J2calPin, J3calPin, J4calPin, J5calPin, J6calPin, J7calPin, J8calPin, J9calPin };
       int JStep[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
@@ -3692,31 +3364,31 @@ void loop() {
       //set master steps to be ajusted by offset
       //may need to inverse the sign for this
       if (J1req == 1) {
-        J1StepM = J1StepM + J1calOffExtra*J1StepDeg
+        J1StepM = J1StepM + J1calOffExtra*J1StepDeg;
       }
       if (J2req == 1) {
-        J2StepM = J2StepM + J2calOffExtra*J2StepDeg
+        J2StepM = J2StepM + J2calOffExtra*J2StepDeg;
       }
       if (J3req == 1) {
-        J3StepM = J3StepM + J3calOffExtra*J3StepDeg
+        J3StepM = J3StepM + J3calOffExtra*J3StepDeg;
       }
       if (J4req == 1) {
-        J4StepM = J4StepM + J4calOffExtra*J4StepDeg
+        J4StepM = J4StepM + J4calOffExtra*J4StepDeg;
       }
       if (J5req == 1) {
-        J5StepM = J5StepM + J5calOffExtra*J5StepDeg
+        J5StepM = J5StepM + J5calOffExtra*J5StepDeg;
       }
       if (J6req == 1) {
-        J6StepM = J6StepM + J6calOffExtra*J6StepDeg
+        J6StepM = J6StepM + J6calOffExtra*J6StepDeg;
       }
       if (J7req == 1) {
-        J7StepM = J7StepM + J7calOffExtra*J7StepDeg
+        J7StepM = J7StepM + J7calOffExtra*J7StepDeg;
       }
       if (J8req == 1) {
-        J8StepM = J8StepM + J8calOffExtra*J8StepDeg
+        J8StepM = J8StepM + J8calOffExtra*J8StepDeg;
       }
       if (J9req == 1) {
-        J9StepM = J9StepM + J9calOffExtra*J9StepDeg
+        J9StepM = J9StepM + J9calOffExtra*J9StepDeg;
       }
 
       //Invert Direction
@@ -4187,6 +3859,7 @@ void loop() {
           J6axisFault = 1;
         }
         //Removed because J7 is continous
+        //Removed because J7 is continous
         if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
           J8axisFault = 1;
         }
@@ -4236,15 +3909,10 @@ void loop() {
       ////////MOVE COMPLETE///////////
     }
 
-
-
-
-
-
-
-
     //----- LIVE TOOL JOG  ---------------------------------------------------
     //-----------------------------------------------------------------------
+    //should investigate what this does
+    //seems like it varies the tool position in cartesian space and then uses inverse kinematics to move the robot to achieve that tool position
     if (function == "LT") {
       delay(5);
       Serial.println();
@@ -4481,6 +4149,7 @@ void loop() {
 
     //----- Jog T ---------------------------------------------------
     //-----------------------------------------------------------------------
+    //This function seems like it changes the tool a set distance
     if (function == "JT") {
       int J1dir;
       int J2dir;
@@ -4657,196 +4326,6 @@ void loop() {
       ////////MOVE COMPLETE///////////
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-    //----- MOVE V ------ VISION OFFSET ----------------------------------
-    //-----------------------------------------------------------------------
-    if (function == "MV") {
-      int J1dir;
-      int J2dir;
-      int J3dir;
-      int J4dir;
-      int J5dir;
-      int J6dir;
-      int J7dir;
-      int J8dir;
-      int J9dir;
-
-      int J1axisFault = 0;
-      int J2axisFault = 0;
-      int J3axisFault = 0;
-      int J4axisFault = 0;
-      int J5axisFault = 0;
-      int J6axisFault = 0;
-      int J7axisFault = 0;
-      int J8axisFault = 0;
-      int J9axisFault = 0;
-      int TotalAxisFault = 0;
-
-      int xStart = inData.indexOf("X");
-      int yStart = inData.indexOf("Y");
-      int zStart = inData.indexOf("Z");
-      int rzStart = inData.indexOf("Rz");
-      int ryStart = inData.indexOf("Ry");
-      int rxStart = inData.indexOf("Rx");
-      int J7Start = inData.indexOf("J7");
-      int J8Start = inData.indexOf("J8");
-      int J9Start = inData.indexOf("J9");
-      int SPstart = inData.indexOf("S");
-      int AcStart = inData.indexOf("Ac");
-      int DcStart = inData.indexOf("Dc");
-      int RmStart = inData.indexOf("Rm");
-      int RndStart = inData.indexOf("Rnd");
-      int WristConStart = inData.indexOf("W");
-      int VisRotStart = inData.indexOf("Vr");
-      int LoopModeStart = inData.indexOf("Lm");
-
-      xyzuvw_PreKin[0] = inData.substring(xStart + 1, yStart).toFloat();
-      xyzuvw_PreKin[1] = inData.substring(yStart + 1, zStart).toFloat();
-      xyzuvw_PreKin[2] = inData.substring(zStart + 1, rzStart).toFloat();
-      xyzuvw_PreKin[3] = inData.substring(rzStart + 2, ryStart).toFloat();
-      xyzuvw_PreKin[4] = inData.substring(ryStart + 2, rxStart).toFloat();
-      xyzuvw_PreKin[5] = inData.substring(rxStart + 2, J7Start).toFloat();
-      J7_In = inData.substring(J7Start + 2, J8Start).toFloat();
-      J8_In = inData.substring(J8Start + 2, J9Start).toFloat();
-      J9_In = inData.substring(J9Start + 2, SPstart).toFloat();
-
-      String SpeedType = inData.substring(SPstart + 1, SPstart + 2);
-      float SpeedVal = inData.substring(SPstart + 2, AcStart).toFloat();
-      float ACCspd = inData.substring(AcStart + 2, DcStart).toFloat();
-      float DCCspd = inData.substring(DcStart + 2, RmStart).toFloat();
-      float ACCramp = inData.substring(RmStart + 2, RndStart).toFloat();
-      float Rounding = inData.substring(RndStart + 3, WristConStart).toFloat();
-      WristCon = inData.substring(WristConStart + 1, VisRotStart);
-      float VisRot = inData.substring(VisRotStart + 2, LoopModeStart).toFloat();
-      String LoopMode = inData.substring(LoopModeStart + 2);
-      LoopMode.trim();
-      J1LoopMode = LoopMode.substring(0, 1).toInt();
-      J2LoopMode = LoopMode.substring(1, 2).toInt();
-      J3LoopMode = LoopMode.substring(2, 3).toInt();
-      J4LoopMode = LoopMode.substring(3, 4).toInt();
-      J5LoopMode = LoopMode.substring(4, 5).toInt();
-      J6LoopMode = LoopMode.substring(5).toInt();
-
-      //get current tool rotation
-      float RXtool = Robot_Kin_Tool[5];
-
-
-      // offset tool rotation by the found vision angle
-      Robot_Kin_Tool[5] = Robot_Kin_Tool[5] - VisRot * M_PI / 180;
-
-      //solve kinematics
-      SolveInverseKinematics();
-
-      //calc destination motor steps
-      int J1futStepM = (JointAnglePostKin[0] + J1axisLimNeg) * J1StepDeg;
-      int J2futStepM = (JointAnglePostKin[1] + J2axisLimNeg) * J2StepDeg;
-      int J3futStepM = (JointAnglePostKin[2] + J3axisLimNeg) * J3StepDeg;
-      int J4futStepM = (JointAnglePostKin[3] + J4axisLimNeg) * J4StepDeg;
-      int J5futStepM = (JointAnglePostKin[4] + J5axisLimNeg) * J5StepDeg;
-      int J6futStepM = (JointAnglePostKin[5] + J6axisLimNeg) * J6StepDeg;
-      int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
-      int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
-      int J9futStepM = (J9_In + J9axisLimNeg) * J9StepDeg;
-
-
-      //calc delta from current to destination
-      int J1stepDif = J1StepM - J1futStepM;
-      int J2stepDif = J2StepM - J2futStepM;
-      int J3stepDif = J3StepM - J3futStepM;
-      int J4stepDif = J4StepM - J4futStepM;
-      int J5stepDif = J5StepM - J5futStepM;
-      int J6stepDif = J6StepM - J6futStepM;
-      int J7stepDif = J7StepM - J7futStepM;
-      int J8stepDif = J8StepM - J8futStepM;
-      int J9stepDif = J9StepM - J9futStepM;
-
-      // put tool roation back where it was
-      Robot_Kin_Tool[5] = RXtool;
-
-      //determine motor directions
-      J1dir = (J1stepDif <= 0) ? 1 : 0;
-      J2dir = (J2stepDif <= 0) ? 1 : 0;
-      J3dir = (J3stepDif <= 0) ? 1 : 0;
-      J4dir = (J4stepDif <= 0) ? 1 : 0;
-      J5dir = (J5stepDif <= 0) ? 1 : 0;
-      J6dir = (J6stepDif <= 0) ? 1 : 0;
-      J7dir = (J7stepDif <= 0) ? 1 : 0;
-      J8dir = (J8stepDif <= 0) ? 1 : 0;
-      J9dir = (J9stepDif <= 0) ? 1 : 0;
-
-
-
-      //determine if requested position is within axis limits
-      if ((J1dir == 1 and (J1StepM + J1stepDif > J1StepLim)) or (J1dir == 0 and (J1StepM - J1stepDif < 0))) {
-        J1axisFault = 1;
-      }
-      if ((J2dir == 1 and (J2StepM + J2stepDif > J2StepLim)) or (J2dir == 0 and (J2StepM - J2stepDif < 0))) {
-        J2axisFault = 1;
-      }
-      if ((J3dir == 1 and (J3StepM + J3stepDif > J3StepLim)) or (J3dir == 0 and (J3StepM - J3stepDif < 0))) {
-        J3axisFault = 1;
-      }
-      if ((J4dir == 1 and (J4StepM + J4stepDif > J4StepLim)) or (J4dir == 0 and (J4StepM - J4stepDif < 0))) {
-        J4axisFault = 1;
-      }
-      if ((J5dir == 1 and (J5StepM + J5stepDif > J5StepLim)) or (J5dir == 0 and (J5StepM - J5stepDif < 0))) {
-        J5axisFault = 1;
-      }
-      if ((J6dir == 1 and (J6StepM + J6stepDif > J6StepLim)) or (J6dir == 0 and (J6StepM - J6stepDif < 0))) {
-        J6axisFault = 1;
-      }
-      //Removed because J7 is continous
-      if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
-        J8axisFault = 1;
-      }
-      if ((J9dir == 1 and (J9StepM + J9stepDif > J9StepLim)) or (J9dir == 0 and (J9StepM - J9stepDif < 0))) {
-        J9axisFault = 1;
-      }
-      TotalAxisFault = J1axisFault + J2axisFault + J3axisFault + J4axisFault + J5axisFault + J6axisFault + J7axisFault + J8axisFault + J9axisFault;
-
-
-      //send move command if no axis limit error
-      if (TotalAxisFault == 0 && KinematicError == 0) {
-        resetEncoders();
-        driveMotorsJ(abs(J1stepDif), abs(J2stepDif), abs(J3stepDif), abs(J4stepDif), abs(J5stepDif), abs(J6stepDif), abs(J7stepDif), abs(J8stepDif), abs(J9stepDif), J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
-        checkEncoders();
-        sendRobotPos();
-      } else if (KinematicError == 1) {
-        Alarm = "ER";
-        delay(5);
-        Serial.println(Alarm);
-        Alarm = "0";
-      } else {
-        Alarm = "EL" + String(J1axisFault) + String(J2axisFault) + String(J3axisFault) + String(J4axisFault) + String(J5axisFault) + String(J6axisFault) + String(J7axisFault) + String(J8axisFault) + String(J9axisFault);
-        delay(5);
-        Serial.println(Alarm);
-        Alarm = "0";
-      }
-
-
-
-      inData = "";  // Clear recieved buffer
-      ////////MOVE COMPLETE///////////
-    }
-
-
-
-
-
-
-
-
     //----- MOVE IN JOINTS ROTATION  ---------------------------------------------------
     //-----------------------------------------------------------------------
 
@@ -4918,8 +4397,11 @@ void loop() {
       J4LoopMode = LoopMode.substring(3, 4).toInt();
       J5LoopMode = LoopMode.substring(4, 5).toInt();
       J6LoopMode = LoopMode.substring(5).toInt();
+      // TODO, add this to MJ and ML as well
       if (J1LoopMode == 0 || J2LoopMode == 0 || J3LoopMode == 0 || J4LoopMode == 0 || J5LoopMode == 0 || J6LoopMode == 0) {
         closedLoopTrue = 1;
+      } else {
+        closedLoopTrue = 0;
       }
       int J1futStepM = (J1Angle + J1axisLimNeg) * J1StepDeg;
       int J2futStepM = (J2Angle + J2axisLimNeg) * J2StepDeg;
@@ -4946,7 +4428,7 @@ void loop() {
       int J4stepDif = J4StepM - J4futStepM;
       int J5stepDif = J5StepM - J5futStepM;
       int J6stepDif = J6StepM - J6futStepM;
-      int J7stepDif = J7_In
+      int J7stepDif = J7_In;
       int J8stepDif = J8StepM - J8futStepM;
       int J9stepDif = J9StepM - J9futStepM;
 
@@ -4982,6 +4464,7 @@ void loop() {
       if ((J6dir == 1 and (J6StepM + J6stepDif > J6StepLim)) or (J6dir == 0 and (J6StepM - J6stepDif < 0))) {
         J6axisFault = 1;
       }
+      //removed J7 axis limit because motor is continous
       //removed J7 axis limit because motor is continous
       if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
         J8axisFault = 1;
@@ -5085,6 +4568,7 @@ void loop() {
       xyzuvw_Temp[4] = inData.substring(ryStart + 2, rxStart).toFloat();
       xyzuvw_Temp[5] = inData.substring(rxStart + 2, J7Start).toFloat();
 
+
       J7_In = inData.substring(J7Start + 2, J8Start).toFloat();
       J8_In = inData.substring(J8Start + 2, J9Start).toFloat();
       J9_In = inData.substring(J9Start + 2, SPstart).toFloat();
@@ -5115,6 +4599,7 @@ void loop() {
         nextCMDtype = checkData.substring(0, 1);
         checkData = checkData.substring(2);
       }
+      //Only used on special spline mode
       //Only used on special spline mode
       if (splineTrue == true and Rounding > 0 and nextCMDtype == "M") {
         //calculate new end point before rounding arc
@@ -5238,8 +4723,10 @@ void loop() {
 
       //line dist and determine way point gap
       //pythagorean theorem
+      //pythagorean theorem
       float lineDist = pow((pow((Xvect), 2) + pow((Yvect), 2) + pow((Zvect), 2) + pow((RZvect), 2) + pow((RYvect), 2) + pow((RXvect), 2)), .5);
       if (lineDist > 0) {
+        
         
         float wayPts = lineDist / linWayDistSP;
         float waypointPercentage = 1 / wayPts; //inverse of # of waypoints
@@ -5263,12 +4750,14 @@ void loop() {
         J6TargetStep = J6futStepM;
         //calc delta from current to destination fpr precalc
         //used to calculate curDelay, not drive motors
+        //used to calculate curDelay, not drive motors
         int J1stepDif = J1StepM - J1futStepM;
         int J2stepDif = J2StepM - J2futStepM;
         int J3stepDif = J3StepM - J3futStepM;
         int J4stepDif = J4StepM - J4futStepM;
         int J5stepDif = J5StepM - J5futStepM;
         int J6stepDif = J6StepM - J6futStepM;
+        //----------Some modified logics from driveMotorsJ()-------------
         //----------Some modified logics from driveMotorsJ()-------------
 
         //FIND HIGHEST STEP FOR PRECALC
@@ -5353,6 +4842,7 @@ void loop() {
 
         // calc external axis way pt moves
         int J7futStepM = (J7_In + J7axisLimNeg) * J7StepDeg;
+        int J7stepDif = (J7_In) / (wayPts - 1);
         int J7stepDif = (J7_In) / (wayPts - 1);
         int J8futStepM = (J8_In + J8axisLimNeg) * J8StepDeg;
         int J8stepDif = (J8StepM - J8futStepM) / (wayPts - 1);
@@ -5451,6 +4941,7 @@ void loop() {
             J6axisFault = 1;
           }
           //Removed because J7 is continous
+          //Removed because J7 is continous
           if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
             J8axisFault = 1;
           }
@@ -5460,10 +4951,11 @@ void loop() {
           TotalAxisFault = J1axisFault + J2axisFault + J3axisFault + J4axisFault + J5axisFault + J6axisFault + J7axisFault + J8axisFault + J9axisFault;
 
           if (abs(J1stepDif)>180 || abs(J2stepDif)>180 || abs(J3stepDif)>180 || abs(J4stepDif)>180 || abs(J5stepDif)>180 || abs(J6stepDif)>180){
-            Alarm = "TurnHazardMoveStopped";
-            Serial.println(alarm);
+            Alarm = "Turn Hazard Move Stopped";
+            Serial.println(Alarm);
             break;
           }
+          
           //send move command if no axis limit error
           if (TotalAxisFault == 0 && KinematicError == 0) {
             driveMotorsL(abs(J1stepDif), abs(J2stepDif), abs(J3stepDif), abs(J4stepDif), abs(J5stepDif), abs(J6stepDif), abs(J7stepDif), abs(J8stepDif), abs(J9stepDif), J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, curDelay);
@@ -5499,12 +4991,14 @@ void loop() {
     //----- MOVE J ---------------------------------------------------
     //-----------------------------------------------------------------------
     if (function == "MJ") {
+      //use drivemotorsJ
       moveJ(inData, true, false, false);
     }
 
     //----- MOVE G ---------------------------------------------------
     //-----------------------------------------------------------------------
     if (function == "MG") {
+      //use drivemotorsG
       moveJ(inData, true, false, true);
     }
 
@@ -5764,6 +5258,7 @@ void loop() {
       if ((J6dir == 1 and (J6StepM + J6stepDif > J6StepLim)) or (J6dir == 0 and (J6StepM - J6stepDif < 0))) {
         J6axisFault = 1;
       }
+      //Removed because J7 is continous
       //Removed because J7 is continous
       if ((J8dir == 1 and (J8StepM + J8stepDif > J8StepLim)) or (J8dir == 0 and (J8StepM - J8stepDif < 0))) {
         J8axisFault = 1;
@@ -6143,12 +5638,6 @@ void loop() {
       inData = "";  // Clear recieved buffer
       ////////MOVE COMPLETE///////////
     }
-
-
-
-
-
-
 
     //----- MOVE A (Arc) ---------------------------------------------------
     //-----------------------------------------------------------------------
