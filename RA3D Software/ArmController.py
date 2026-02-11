@@ -27,7 +27,7 @@ class ArmController:
         self.calJStage2 = [0, 0, 0, 1, 1, 1] # J4, J5, & J6 calibration in Stage 2
 
         # Speed parameters used for movement commands
-        self.defaultMoveParameters = MoveParameters(50,10,10,30,0,'m')
+        self.defaultMoveParameters = MoveParameters(40,10,10,30,0,'p')
         #J Limits:
         self.J1Limits = [-170,170]
         self.J2Limits = [-42,90]
@@ -216,11 +216,7 @@ class ArmController:
         J9Idx = response.find('R') # R value is angle of J9
         # Extract the actual values from the response
         # Joint angles
-        self.curJ1 = response[J1Idx+1:J2Idx].strip()
-        pattern = r"^-?(\d+(?:\.\d+)?)"
-        '''if re.match(pattern, incomingJ1):
-            print("Process Position Failed, not a number. Problem with Serial.")
-            return'''
+        self.curJ1 = float(response[J1Idx+1:J2Idx].strip())
         self.curJ2 = float(response[J2Idx+1:J3Idx].strip())
         self.curJ3 = float(response[J3Idx+1:J4Idx].strip())
         self.curJ4 = float(response[J4Idx+1:J5Idx].strip())
@@ -260,6 +256,7 @@ class ArmController:
         if self.awaitingPosResponse is True:
             self.root.statusPrint("Position response timed out")
             self.awaitingPosResponse = False
+        self.root.timeoutStartedCal = False
 
     def getJointColors(self,J1,J2,J3,J4,J5,J6):
         if J1 == None:

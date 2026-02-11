@@ -39,9 +39,10 @@ class TkWindow(Tk):
         # Set up a call to the update function after updateDelay milliseconds
         updateThread = threading.Thread(target=self.update)
         updateThread.start()
-        self.calibrationTimeout = threading.Thread(target=self.armController.calibrateTimeout)
-        self.moveTimeout = threading.Thread(target=self.armController.moveTimeout)
-        self.positionTimeout = threading.Thread(target=self.armController.processPositionTimeout)
+        
+        self.timeoutStartedCal = False
+        self.timeoutStartedMove = False
+        self.timeoutStartedPos = False
 
     # Creates the interface tabs
     def createTabs(self):
@@ -635,11 +636,14 @@ class TkWindow(Tk):
         # ===========| ArmController |============
         # If arm calibration is in progress, call the calibration update function
         # TODO Add calibration thread
+
         if self.armController.calibrationInProgress:
             #could timeout per stage or for whole calibration
             
-            if self.calibrationTimeout.is_alive() == False:
-                self.calibrationTimeout.start()
+            if self.timeoutStartedCal==False:
+                self.timeoutStartedCal=True
+                calibrationTimeout = threading.Thread(target=self.armController.calibrateTimeout)
+                calibrationTimeout.start()
             if self.serialController.responseReady: 
                 response = self.serialController.getLastResponse()
                 self.serialController.sortResponse(response)
@@ -647,17 +651,21 @@ class TkWindow(Tk):
                 self.armController.calibrateArmUpdate()
             #sort serial
         if self.armController.awaitingMoveResponse:
-            if self.moveTimeout.is_alive() == False:
-                self.moveTimeout.start()
+            if self.timeoutStartedMove==False:
+                self.timeoutStartedMove=True
+                moveTimeout = threading.Thread(target=self.armController.moveTimeout)
+                moveTimeout.start()
             if self.serialController.responseReady: 
                 response = self.serialController.getLastResponse()
                 self.serialController.sortResponse(response)
             #self.armController.moveUpdate()
             #sort serial
-        
+
         if self.armController.awaitingPosResponse:
-            if self.positionTimeout.is_alive() == False:
-                self.positionTimeout.start()
+            if self.timeoutStartedPos==False:
+                self.timeoutStartedPos=True
+                positionTimeout = threading.Thread(target=self.armController.processPositionTimeout)
+                positionTimeout.start()
             if self.serialController.responseReady:
                 response = self.serialController.getLastResponse()
                 self.serialController.sortResponse(response)
@@ -718,6 +726,8 @@ class TkWindow(Tk):
         self.statusLabel.config(text=f"Status: {message}")
         # Also print the full message to the terminal
         self.terminalPrint(message)
+    def warningPrint(self, message):
+        messagebox.showinfo("Warning", message)
 
     def createPostCalibration(self):
         # Create a new top-level window

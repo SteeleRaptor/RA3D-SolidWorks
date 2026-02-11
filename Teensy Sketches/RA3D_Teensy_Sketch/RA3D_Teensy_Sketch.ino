@@ -2494,7 +2494,7 @@ void loop() {
     processSerial();
   }
   if (closedLoopTrue){
-    closedLoop();
+    //closedLoop();//Warning! WIP
   }
   //dont start unless at least one command has been read in
   if (cmdBuffer1 != "") {
@@ -2879,7 +2879,7 @@ void loop() {
 
     //-----COMMAND CALIBRATE EXTERNAL AXIS---------------------------------------------------
     //-----------------------------------------------------------------------
-    if (function == "CE") {
+    /*if (function == "CE") {
       int J7lengthStart = inData.indexOf('A');
       int J7rotStart = inData.indexOf('B');
       int J7stepsStart = inData.indexOf('C');
@@ -2919,11 +2919,11 @@ void loop() {
 
       delay(5);
       Serial.print("Done");
-    }
+    }*/
 
     //-----COMMAND ZERO J7---------------------------------------------------
     //-----------------------------------------------------------------------
-    if (function == "Z7") {
+    /*if (function == "Z7") {
       J7StepM = 0;
       sendRobotPos();
     }
@@ -2940,7 +2940,7 @@ void loop() {
     if (function == "Z9") {
       J9StepM = 0;
       sendRobotPos();
-    }
+    }*/
 
 
     //-----COMMAND TO WAIT TIME---------------------------------------------------
@@ -3272,6 +3272,7 @@ void loop() {
       sendRobotPos();
       inData = "";  // Clear recieved buffer
     }
+
     //-----COMMAND TO CALIBRATE EXTRA---------------------------------------------------
     //-----------------------------------------------------------------------
     //Meant for after calibration to adjust calibration without touching limit switches
@@ -3320,7 +3321,15 @@ void loop() {
       float J7calOffExtra = inData.substring(J7calstart + 1, J8calstart).toFloat();
       float J8calOffExtra = inData.substring(J8calstart + 1, J9calstart).toFloat();
       float J9calOffExtra = inData.substring(J9calstart + 1).toFloat();
-    
+      float J1callOffExtraDeg = J1calOffExtra * J1StepDeg;
+      float J2callOffExtraDeg = J2calOffExtra * J2StepDeg;
+      float J3callOffExtraDeg = J3calOffExtra * J3StepDeg;
+      float J4callOffExtraDeg = J4calOffExtra * J4StepDeg;
+      float J5callOffExtraDeg = J5calOffExtra * J5StepDeg;
+      float J6callOffExtraDeg = J6calOffExtra * J6StepDeg;
+      float J7callOffExtraDeg = J7calOffExtra * J7StepDeg;
+      float J8callOffExtraDeg = J8calOffExtra * J8StepDeg;
+      float J9callOffExtraDeg = J9calOffExtra * J9StepDeg;
       ///
       int J1Step = 0;
       int J2Step = 0;
@@ -3364,31 +3373,31 @@ void loop() {
       //set master steps to be ajusted by offset
       //may need to inverse the sign for this
       if (J1req == 1) {
-        J1StepM = J1StepM + J1calOffExtra*J1StepDeg;
+        J1StepM = J1StepM - J1callOffExtraDeg;
       }
       if (J2req == 1) {
-        J2StepM = J2StepM + J2calOffExtra*J2StepDeg;
+        J2StepM = J2StepM - J2callOffExtraDeg;
       }
       if (J3req == 1) {
-        J3StepM = J3StepM + J3calOffExtra*J3StepDeg;
+        J3StepM = J3StepM - J3callOffExtraDeg;
       }
       if (J4req == 1) {
-        J4StepM = J4StepM + J4calOffExtra*J4StepDeg;
+        J4StepM = J4StepM - J4callOffExtraDeg;
       }
       if (J5req == 1) {
-        J5StepM = J5StepM + J5calOffExtra*J5StepDeg;
+        J5StepM = J5StepM - J5callOffExtraDeg;
       }
       if (J6req == 1) {
-        J6StepM = J6StepM + J6calOffExtra*J6StepDeg;
+        J6StepM = J6StepM - J6callOffExtraDeg;
       }
       if (J7req == 1) {
-        J7StepM = J7StepM + J7calOffExtra*J7StepDeg;
+        J7StepM = J7StepM - J7callOffExtraDeg;
       }
       if (J8req == 1) {
-        J8StepM = J8StepM + J8calOffExtra*J8StepDeg;
+        J8StepM = J8StepM - J8callOffExtraDeg;
       }
       if (J9req == 1) {
-        J9StepM = J9StepM + J9calOffExtra*J9StepDeg;
+        J9StepM = J9StepM - J9callOffExtraDeg;
       }
 
       //Invert Direction
@@ -3454,7 +3463,7 @@ void loop() {
       float ACCramp = 50;
       setEncoders();
       //Drive by amount changed
-      driveMotorsJ(J1calOffExtra, J2calOffExtra, J3calOffExtra, J4calOffExtra, J5calOffExtra, J6calOffExtra, J7calOffExtra, J8calOffExtra, J9calOffExtra, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
+      driveMotorsJ(J1callOffExtraDeg, J2callOffExtraDeg, J3callOffExtraDeg, J4callOffExtraDeg, J5callOffExtraDeg, J6callOffExtraDeg, J7callOffExtraDeg, J8callOffExtraDeg, J9callOffExtraDeg, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
       sendRobotPos();
       inData = "";  // Clear recieved buffer
     }
@@ -4599,7 +4608,7 @@ void loop() {
         nextCMDtype = checkData.substring(0, 1);
         checkData = checkData.substring(2);
       }
-      //Only used on special spline mode
+      
       //Only used on special spline mode
       if (splineTrue == true and Rounding > 0 and nextCMDtype == "M") {
         //calculate new end point before rounding arc
@@ -5642,7 +5651,7 @@ void loop() {
     //----- MOVE A (Arc) ---------------------------------------------------
     //-----------------------------------------------------------------------
     if (function == "MA" and flag == "") {
-
+      //Round ture only used for a rounded moveL
       if (rndTrue == true) {
         inData = rndData;
       }
