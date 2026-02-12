@@ -1,4 +1,5 @@
 from tkinter import *
+from tkinter import messagebox
 import tkinter.ttk as ttk
 import threading
 from datetime import datetime
@@ -777,6 +778,9 @@ class TkWindow(Tk):
         # Add a button to close the popup
         close_button = Button(popup, text="Close", command=popup.destroy)
         close_button.pack(pady=10)
+        
+    def setSettings(self):
+        pass
 
 if __name__ == "__main__":
     app = TkWindow()

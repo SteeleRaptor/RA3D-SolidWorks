@@ -10,6 +10,7 @@ class PrintController:
         self.maxBoundaryY = [-100,100]
         self.maxBoundaryX = [200,500]
         self.maxBoundaryZ = [100,600]
+        self.bufferBoundary = 50 # Warning pops up if this boundary is entered
         self.selectedFilepath = None
         self.gcodeLines = []
         self.teensyLines = []
@@ -17,16 +18,16 @@ class PrintController:
         self.printing = False
         self.printPaused = False
         self.origin = root.armController.origin
+        #corners are absolute, may change to relative to origin
         self.calibrationCorners = [Position(430,40,145,0,90,0,None),Position(470,40,145,0,90,0,None),Position(470,-40,145,0,90,0,None),Position(430,-40,145,0,90,0,None)]
         # Parameters for printing coordinates
         #self.xBounds = [300, 500] # X Min & X Max
         #self.yBounds = [-100, 100] # Y Min & Y Max
         #self.zBounds = [100, 300] # Z Min & Z Max
-        #self.xyCenter = [(self.xBounds[0] + self.xBounds[1]) / 2, (self.yBounds[0] + self.yBounds[1]) / 2]
         # Parameters used for saving the last used coordinate information
         self.lastPos = Position(None,None,None,None,None,None,self.origin)
         self.printPos = Position(None,None,None,None,None,None,self.origin)
-        self.printParemeters = MoveParameters(20,5,5,15,0,"m") #10mm/s print speed
+        self.defaultPrintParameters = MoveParameters(20,5,5,15,0,"m") #10mm/s print speed
         self.lastF = 0.0
         self.lastE = 0.0
         self.currentInstruction = 0
@@ -83,7 +84,7 @@ class PrintController:
 
     def startPrint(self):
         if not self.origin.checkOriginSet():
-            print("Orign not set, print cancelled")
+            self.root.statusPrint("Origin not set, print cancelled")
             return
         
 
@@ -105,7 +106,7 @@ class PrintController:
 
     def stepPrint(self):
         if not self.origin.checkOriginSet():
-            print("Cannot print Origin not set")
+            self.root.statusPrint("Cannot print; Origin not set")
             return
         
         self.root.statusPrint("Stepping print")
@@ -119,19 +120,23 @@ class PrintController:
         self.currentInstruction += 1 # Increment currentInstruction
         self.root.progressBar["value"] = (self.currentInstruction / len(self.gcodeLines)) * 100 # Update progress bar to match
         self.root.terminalPrint(f"Line: {lineToConvert}")# Print the line we're converting
-        point = self.gcodeToTeensy(lineToConvert) # Convert line to [X, Y, Z, Rx, Ry, Rz]
-        self.root.terminalPrint(f"Point: {point}") # Print the returned point list
+        [point, feedrate, extruderate] = self.gcodeToTeensy(lineToConvert) # update PrintPos with current gcode line
         if point == "": # If the point is blank, don't try to send a command
             return
+        self.root.terminalPrint(f"Point: {point}") # Print the returned point list
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.printParemeters)
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.printParemeters,feedrate=feedrate)
 
     def pausePrint(self):
         self.printing = False
         self.printPaused = True
+
     def cancelPrint(self):
         self.currentInstruction=0
+        self.printing = False
+        self.printPaused = False
+        self.root.statusPrint("Print cancelled")
         pass
     
     # Converts a GCode instruction to the instruction to send over serial
@@ -144,7 +149,7 @@ class PrintController:
             return "" # Don't convert
         # Actual instructions to convert
         elif lineToConvert[0:3] == "G28": # Home the printer
-            self.armController.moveSafe() #Should probably implement home seperate from safe position
+            self.armController.moveHome() #Moves to neutral position
             return ""
         elif lineToConvert[0:3] == "G90": # Absolute positioning
             # TODO: This needs handling or removal
@@ -164,7 +169,6 @@ class PrintController:
             e = float(eMatch.group(1)) if eMatch else None
             # TODO: Temporary rotation information
 
-            
             # If GCode instruction didn't contain a parameter, pull from last saved value
             # If instruction DID contain a parameter, offset the value to put it in the build volume
             if x == None:
@@ -174,7 +178,7 @@ class PrintController:
             if z == None:
                 z = self.lastPos.GetRelative()[2]
             if f == None:
-                f = self.lastF
+                f = 0.0
             else:
                 self.lastF = f
             if e == None:
@@ -183,7 +187,12 @@ class PrintController:
                 self.lastE = e
             self.printPos.SetRelative(x,y,z,0,90,0)
             self.lastPos = copy.deepcopy(self.printPos)
-            # TODO: Additional processing to ensure X, Y, and Z are within build volume
+
+            #Check if point is in boundary else pause print
+            if self.checkPos(self.printPos):
+                return [f,e]
+            else:
+                self.pausePrint()
             # TODO: Additional processing for F to control speed or something
             # Note that F is in units per minute (per LinuxCNC specifications)
             # https://linuxcnc.org/docs/html/gcode/machining-center.html#sub:feed-rate
@@ -191,7 +200,7 @@ class PrintController:
             # TODO: Might make a custom datatype for storing position data that can be used
             #newLine = f"MLX{x}Y{y}Z{z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.root.armController.speed}Ac{self.root.armController.acceleration}Dc{self.root.armController.deceleration}Rm{self.root.armController.ramp}Rnd0WFLm000000Q0\n"
             #return newLine
-            return self.printPos.GetAbsolute()
+            return ""
 
     # This is the main function that will loop when printing a file
     def printLoop(self):
@@ -209,29 +218,49 @@ class PrintController:
         self.currentInstruction += 1 # Increment currentInstruction
         self.root.progressBar["value"] = (self.currentInstruction / len(self.gcodeLines)) * 100 # Update progress bar to match
         self.root.terminalPrint(f"Line: {lineToConvert}")# Print the line we're converting
-        point = self.gcodeToTeensy(lineToConvert) # Convert line to [X, Y, Z, Rx, Ry, Rz]
-        self.root.terminalPrint(f"Point: {point}") # Print the returned point list
-        if point == "": # If the point is blank, don't try to send a command
+        [feedRate, extrudeRate] = self.gcodeToTeensy(lineToConvert) # Convert line to [X, Y, Z, Rx, Ry, Rz], updates printPos
+        if feedRate == "": # If the point is blank, don't try to send a command
             return
+        MoveParameters = copy.deepcopy(self.defaultPrintParameters)
+        if feedRate != None:
+            MoveParameters.speedMode = "m"
+            MoveParameters.speed = feedRate
+        self.root.terminalPrint(f"Point: {self.printPos.GetAbsolute()}") # Print the returned point list
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
-
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.printParemeters)
+        self.root.armController.sendML(pos=self.printPos, MoveParameters=MoveParameters, extrudeRate=extrudeRate)
+    
     def syncOrigin(self):
         self.origin = self.root.armController.origin
+
     def startPrintBedCalibration(self):
         if self.origin.originSet == False or self.origin == None:
-            print("Origin not set, cannot begin leveling")
+            self.root.statusPrint("Origin not set, cannot begin leveling")
             return
         self.bedCalibration = True
         self.bedCalStep = 1
         self.syncOrigin()
         self.nextBedCalibration()
-
+    
+    #determines whether a position is within the boundaries of the printer
+    def checkBoundary(self, pos):
+        # check whether position is within buffer boundary, if so print warning
+        if pos.x < self.maxBoundaryX[0] + self.bufferBoundary or pos.x > self.maxBoundaryX[1] - self.bufferBoundary:
+            self.root.warningPrint("X boundary exceeded")
+        if pos.y < self.maxBoundaryY[0] + self.bufferBoundary or pos.y > self.maxBoundaryY[1] - self.bufferBoundary:
+            self.root.warningPrint("Y boundary exceeded")
+        if pos.z < self.maxBoundaryZ[0] + self.bufferBoundary or pos.z > self.maxBoundaryZ[1] - self.bufferBoundary:
+            self.root.warningPrint("Z boundary exceeded")
+        # Check if position is out of bounds, if so return false to prevent move
+        if pos.x < self.maxBoundaryX[0] or pos.x > self.maxBoundaryX[1] or pos.y < self.maxBoundaryY[0] or pos.y > self.maxBoundaryY[1] or pos.z < self.maxBoundaryZ[0] or pos.z > self.maxBoundaryZ[1]:
+            return False
+        return True
+    
     def nextBedCalibration(self):
         if self.bedCalibration == True:
             bedCalibrationThread = threading.Thread(target=self.bedCalibrationStep)
             bedCalibrationThread.start()
+    
     def bedCalibrationStep(self):
         currentCornerPos = self.calibrationCorners[self.bedCalStep-1]
         self.root.cornerLabel.config(text=f"Current Corner: {self.bedCalStep}")
@@ -253,7 +282,7 @@ class PrintController:
         self.bedCalStep += 1
         #Move To position
         #End calibration
-        if self.bedCalStep == 5: #Goes to 5 after 4 is comleted
+        if self.bedCalStep == 5: #Goes to 5 after 4 is completed
             self.bedCalibration=False
             self.root.armController.moveHome()
 

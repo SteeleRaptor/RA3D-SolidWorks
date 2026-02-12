@@ -120,10 +120,8 @@ class SerialController:
         self.root.terminalPrint(f"Received Response: {response}")
         if response[:2]== "ER":
             self.root.statusPrint(f"Kinematic Error: {response[2:]}")
-            self.root.terminalPrint(f"Kinematic Error: {response[2:]}")
         elif response[:2] == "EL":
-            self.root.statusPrint(f"Error Axis Fault: {response[2:]}")
-            self.root.terminalPrint(f"Error Axis Fault: {response[2:]}")
+            self.root.statusPrint(f"Error Axis Fault, Out of Reach: {response[2:]}")
         elif response[:2] == "TL":
             if self.root.armController.testingLimitSwitches:
                 #Limit switch test
@@ -144,8 +142,10 @@ class SerialController:
             self.root.statusPrint(f"Echo: {response[4:]}")
         elif response == "\n":
             pass
-        elif response == "TurnHazardMoveStopped":
+        elif response == "Turn Hazard Move Stopped":
             self.root.statusPrint(f"Encountered Hazard Move Stopped: {response[2:]}")
+            self.root.printController.cancelPrint()
+            self.root.warningPrint(f"Turn Hazard Encountered. Stopping Print")
         elif response[:3] == "POS" and self.root.armController.calibrationInProgress:
             self.root.statusPrint("Position received from arm during calibration")
             self.root.armController.calibrateArmUpdate(response=response)
