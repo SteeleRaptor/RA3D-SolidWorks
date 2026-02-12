@@ -3373,22 +3373,46 @@ void loop() {
       //set master steps to be ajusted by offset
       //may need to inverse the sign for this
       if (J1req == 1) {
-        J1StepM = J1StepM - J1callOffExtraDeg;
+        if (J1CalDir) {
+          J1StepM = J1StepM + J1calOffExtra * J1StepDeg;
+        } else {
+          J1StepM = J1StepM - J1calOffExtra * J1StepDeg;
+        }
       }
       if (J2req == 1) {
-        J2StepM = J2StepM - J2callOffExtraDeg;
+        if (J2CalDir) {
+          J2StepM = J2StepM + J2calOffExtra * J2StepDeg;
+        } else {
+          J2StepM = J2StepM - J2calOffExtra * J2StepDeg;
+        }
       }
       if (J3req == 1) {
-        J3StepM = J3StepM - J3callOffExtraDeg;
+        if (J3CalDir) {
+          J3StepM = J3StepM + J3calOffExtra * J3StepDeg;
+        } else {
+          J3StepM = J3StepM - J3calOffExtra * J3StepDeg;
+        }
       }
       if (J4req == 1) {
-        J4StepM = J4StepM - J4callOffExtraDeg;
+        if (J4CalDir) {
+          J4StepM = J4StepM + J4calOffExtra * J4StepDeg;
+        } else {
+          J4StepM = J4StepM - J4calOffExtra * J4StepDeg;
+        }
       }
       if (J5req == 1) {
-        J5StepM = J5StepM - J5callOffExtraDeg;
+        if (J5CalDir) {
+          J5StepM = J5StepM + J5calOffExtra * J5StepDeg;
+        } else {
+          J5StepM = J5StepM - J5calOffExtra * J5StepDeg;
+        }
       }
       if (J6req == 1) {
-        J6StepM = J6StepM - J6callOffExtraDeg;
+        if (J6CalDir) {
+          J6StepM = J6StepM + J6calOffExtra * J6StepDeg;
+        } else {
+          J6StepM = J6StepM - J6calOffExtra * J6StepDeg;
+        }
       }
       if (J7req == 1) {
         J7StepM = J7StepM - J7callOffExtraDeg;
@@ -3400,60 +3424,42 @@ void loop() {
         J9StepM = J9StepM - J9callOffExtraDeg;
       }
 
-      //Invert Direction
+      //Invert Direction if negative offset
       /// J1 ///
-      if (J1CalDir) {
-        J1dir = 0;
-      } else {
-        J1dir = 1;
+      if (J1callOffExtraDeg < 0) {
+        J1dir = !(J1dir);// ?  0: 1;
       }
       /// J2 ///
-      if (J2CalDir) {
-        J2dir = 0;
-      } else {
-        J2dir = 1;
+      if (J2callOffExtraDeg < 0) {
+        J2dir = !(J2dir);
       }
       /// J3 ///
-      if (J3CalDir) {
-        J3dir = 0;
-      } else {
-        J3dir = 1;
+      if (J3callOffExtraDeg < 0) {
+        J3dir = !(J3dir);
       }
       /// J4 ///
-      if (J4CalDir) {
-        J4dir = 0;
-      } else {
-        J4dir = 1;
+      if (J4callOffExtraDeg < 0) {
+        J4dir = !(J4dir);
       }
       /// J5 ///
-      if (J5CalDir) {
-        J5dir = 0;
-      } else {
-        J5dir = 1;
+      if (J5callOffExtraDeg < 0) {
+        J5dir = !(J5dir);
       }
       /// J6 ///
-      if (J6CalDir) {
-        J6dir = 0;
-      } else {
-        J6dir = 1;
+      if (J6callOffExtraDeg < 0) {
+        J6dir = !(J6dir);
       }
       /// J7 ///
-      if (J7CalDir) {
-        J7dir = 0;
-      } else {
-        J7dir = 1;
+      if (J7callOffExtraDeg < 0) {
+        J7dir = !(J7dir);
       }
       /// J8 ///
-      if (J8CalDir) {
-        J8dir = 0;
-      } else {
-        J8dir = 1;
+      if (J8callOffExtraDeg < 0) {
+        J8dir = !(J8dir);
       }
       /// J9 ///
-      if (J9CalDir) {
-        J9dir = 0;
-      } else {
-        J9dir = 1;
+      if (J9callOffExtraDeg < 0) {
+        J9dir = !(J9dir);
       }
 
       float ACCspd = 10;
@@ -3463,7 +3469,7 @@ void loop() {
       float ACCramp = 50;
       setEncoders();
       //Drive by amount changed
-      driveMotorsJ(J1callOffExtraDeg, J2callOffExtraDeg, J3callOffExtraDeg, J4callOffExtraDeg, J5callOffExtraDeg, J6callOffExtraDeg, J7callOffExtraDeg, J8callOffExtraDeg, J9callOffExtraDeg, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
+      driveMotorsJ(abs(J1callOffExtraDeg), abs(J2callOffExtraDeg), abs(J3callOffExtraDeg), abs(J4callOffExtraDeg), abs(J5callOffExtraDeg), abs(J6callOffExtraDeg), abs(J7callOffExtraDeg), abs(J8callOffExtraDeg), abs(J9callOffExtraDeg), J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
       sendRobotPos();
       inData = "";  // Clear recieved buffer
     }

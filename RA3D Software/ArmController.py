@@ -185,6 +185,19 @@ class ArmController:
         # Tell the serial controller to send the serial
         self.serialController.sendSerial(command)
         self.awaitingMoveResponse = True
+        # Set values back to zero to avoid unintentionally stacking offsets
+        self.root.J1OffsetEntryP.delete(0, 'end')
+        self.root.J2OffsetEntryP.delete(0, 'end')
+        self.root.J3OffsetEntryP.delete(0, 'end')
+        self.root.J4OffsetEntryP.delete(0, 'end')
+        self.root.J5OffsetEntryP.delete(0, 'end')
+        self.root.J6OffsetEntryP.delete(0, 'end')
+        self.root.J1OffsetEntryP.insert(0,"0")
+        self.root.J2OffsetEntryP.insert(0,"0")
+        self.root.J3OffsetEntryP.insert(0,"0")
+        self.root.J4OffsetEntryP.insert(0,"0")
+        self.root.J5OffsetEntryP.insert(0,"0")
+        self.root.J6OffsetEntryP.insert(0,"0")
 
     def getPostCalOffsets(self):
         self.J1CalOffset = float(self.root.J1OffsetEntryP.get())
