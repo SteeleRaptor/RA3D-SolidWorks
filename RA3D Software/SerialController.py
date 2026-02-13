@@ -117,11 +117,14 @@ class SerialController:
 
     #Function process response because correct response is not guaranteed for a command
     def sortResponse(self, response):
+        # TODO: Add in a message/action for every response and edit teensy to send more information
         self.root.terminalPrint(f"Received Response: {response}")
         if response[:2]== "ER":
             self.root.statusPrint(f"Kinematic Error: {response[2:]}")
+            self.root.printController.flag = "Kinematic Error"
         elif response[:2] == "EL":
             self.root.statusPrint(f"Error Axis Fault, Out of Reach: {response[2:]}")
+            self.root.printController.flag = "Axis Fault"
         elif response[:2] == "TL":
             if self.root.armController.testingLimitSwitches:
                 #Limit switch test
@@ -146,13 +149,15 @@ class SerialController:
             self.root.statusPrint(f"Encountered Hazard Move Stopped: {response[2:]}")
             self.root.printController.cancelPrint()
             self.root.warningPrint(f"Turn Hazard Encountered. Stopping Print")
+            self.root.printController.flag = "Turn Hazard"
+            
         elif response[:3] == "POS" and self.root.armController.calibrationInProgress:
             self.root.statusPrint("Position received from arm during calibration")
             self.root.armController.calibrateArmUpdate(response=response)
         elif response[:3] == "POS" and self.root.armController.awaitingMoveResponse:
             self.root.statusPrint("Position received from arm after move command")
             self.root.armController.moveUpdate(response=response)
-        elif response[:3] == "POS" and self.root.armController.awaitingPositionUpdate:
+        elif response[:3] == "POS" and self.root.armController.awaitingPosResponse:
             self.root.statusPrint("Position received from arm after position request")
             self.root.armController.requestPositionUpdate(response=response)
         elif response[:3] == "POS":

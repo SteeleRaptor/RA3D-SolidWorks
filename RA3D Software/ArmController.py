@@ -2,6 +2,7 @@ from asyncio import wait
 import re
 import numpy as np
 import time
+import threading
 from SerialController import SerialController
 from Kinematics import Kinematics
 
@@ -129,13 +130,21 @@ class ArmController:
                 self.armCalibrated = True
                 # Print out the response received
                 self.root.terminalPrint(response)
-
+                self.root.timeoutStartedCal = False
+                
     #if no calibrate response
     def calibrateTimeout(self):
-        time.sleep(35) #adjust
-        #if response for stage 1 hasn't come back yet
-        if self.calibrationState == 0:
+        timeout = 35
+        timeInc = 0.1
+        timeElapsed = 0
+        #while timeout is not reached and still waiting for position response, keep waiting
+        while timeElapsed < timeout and (self.calibrationState == 2 or self.calibrationState == 1):
+            time.sleep(timeInc)
+            timeElapsed += timeInc
+        #if no longer calibrating, exit function
+        if self.calibrationState == 0 or self.calibrationInProgress == False:
             return
+        #if response for stage 1 hasn't come back yet
         if self.calibrationState == 1 or self.calibrationState == 2:
             # If not, inform user of Stage 1 Failure
             self.root.statusPrint(f"Stage 1 Calibration FAILED")
@@ -146,7 +155,13 @@ class ArmController:
             # Force arm calibration flag to False
             self.armCalibrated = False
             return
-        time.sleep(35)
+        timeout = 35
+        timeInc = 0.1
+        timeElapsed = 0
+        #while timeout is not reached and still waiting for position response, keep waiting
+        while timeElapsed < timeout and (self.calibrationState == 3 or self.calibrationState == 4):
+            time.sleep(timeInc)
+            timeElapsed += timeInc
         #special case if stage 2 hasn't been sent yet
         if self.calibrationState == 3:
             time.sleep(2)
@@ -162,6 +177,17 @@ class ArmController:
             self.armCalibrated = False
         self.root.timeoutStartedCal = False
 
+    def startSpecificCalibration(self, calJ1=False, calJ2=False, calJ3=False, calJ4=False, calJ5=False, calJ6=False):
+        # Check if calibration is already in progress and exit if so
+        if self.calibrationInProgress is True:
+            self.root.statusPrint("Calibration already in progress")
+            return
+        # Check if arm is busy with something else
+        if self.checkIfBusy() is True:
+            self.root.statusPrint("Arm is busy with something else at the moment")
+            return
+        self.root.statusPrint("Beginning arm calibration")
+        self.calibrateJoints(calJ1=calJ1, calJ2=calJ2, calJ3=calJ3, calJ4=calJ4, calJ5=calJ5, calJ6=calJ6)
 
     def calibrateJoints(self, calJ1=False, calJ2=False, calJ3=False, calJ4=False, calJ5=False, calJ6=False):
         self.getCalOffsets() # Update calibration offsets from entry fields
@@ -173,6 +199,18 @@ class ArmController:
             return "E"
         # Tell the serial controller to send the serial
         self.serialController.sendSerial(command)
+
+    def startPostCalibration(self, calJ1=False, calJ2=False, calJ3=False, calJ4=False, calJ5=False, calJ6=False):
+        # Check if calibration is already in progress and exit if so
+        if self.calibrationInProgress is True:
+            self.root.statusPrint("Calibration already in progress")
+            return
+        # Check if arm is busy with something else
+        if self.checkIfBusy() is True:
+            self.root.statusPrint("Arm is busy with something else at the moment")
+            return
+        self.root.statusPrint("Beginning post calibration")
+        self.postCalibrateJoints(calJ1=calJ1, calJ2=calJ2, calJ3=calJ3, calJ4=calJ4, calJ5=calJ5, calJ6=calJ6)
 
     def postCalibrateJoints(self, calJ1=False, calJ2=False, calJ3=False, calJ4=False, calJ5=False, calJ6=False):
         self.getPostCalOffsets() # Update calibration offsets from entry fields
@@ -267,12 +305,18 @@ class ArmController:
         self.updateDeltaFromOrigin()
 
     def processPositionTimeout(self):
-        time.sleep(5)
+        timeout = 5
+        timeInc = 0.1
+        timeElapsed = 0
+        #while timeout is not reached and still waiting for position response, keep waiting
+        while timeElapsed < timeout and self.awaitingPosResponse:
+            time.sleep(timeInc)
+            timeElapsed += timeInc
         if self.awaitingPosResponse is True:
             self.root.terminalPrint("Position response timed out")
             self.root.statusPrint("Position response timed out")
             self.awaitingPosResponse = False
-        self.root.timeoutStartedCal = False
+        self.root.timeoutStartedPos = False
 
     def getJointColors(self,J1,J2,J3,J4,J5,J6):
         if J1 == None:
@@ -306,7 +350,6 @@ class ArmController:
         for i in range(len(green)):
             rgb = (red[i],green[i],blue)
             jointColors[i] = '#%02x%02x%02x' % rgb
-        print("test",jointColors)
         return jointColors
     def prepMJCommand(self):
         # Read the values from each entry box
@@ -340,10 +383,10 @@ class ArmController:
         
         if allValuesNumeric:
             self.root.terminalPrint("All values numeric, sending ML command")
-            self.sendMJ(x, y, z, Rx, Ry, Rz, self.defaultMoveParameters)
+            self.sendMJ(Position(float(x),float(y),float(z),float(Rx),float(Ry),float(Rz),None), self.defaultMoveParameters)
         else:
             self.root.statusPrint("ML command not sent due to a value not being a number")
-    def sendMJ(self, X, Y, Z, Rx, Ry, Rz, moveParameters):
+    def sendMJ(self,commandPos, moveParameters):
         if self.awaitingMoveResponse:
             self.root.statusPrint("Cannot send ML command as currently awaiting response from a previous move command")
             return
@@ -351,7 +394,6 @@ class ArmController:
         # Taken from AR4.py, line XXXX
         # command = "ML"+"X"+RUN['xVal']+"Y"+RUN['yVal']+"Z"+RUN['zVal']+"Rz"+rzVal+"Ry"+ryVal+"Rx"+rxVal+"J7"+J7Val+"J8"+J8Val+"J9"+J9Val+speedPrefix+Speed+"Ac"+ACCspd+"Dc"+DECspd+"Rm"+ACCramp+"Rnd"+Rounding+"W"+RUN['WC']+"Lm"+LoopMode+"Q"+DisWrist+"\n"
         # Create the command
-        commandPos = Position(X,Y,Z,Rx,Ry,Rz,None)
         command = MoveCommand("MJ",commandPos, moveParameters)
         self.root.terminalPrint("Command to send:")
         self.root.terminalPrint(str(command)[0:-2])
@@ -367,9 +409,10 @@ class ArmController:
             self.root.statusPrint("Command not sent due to arm not calibrated")
             return
         # Send the serial command
-        self.serialController.sendSerial(str(command))
         self.awaitingMoveResponse = True # Set the awaiting move response flag
+        self.serialController.sendSerial(str(command))
 
+    #getxyz
     def populateMJ(self):
         self.root.xCoordEntry.delete(0, 'end')
         self.root.yCoordEntry.delete(0, 'end')
@@ -456,9 +499,9 @@ class ArmController:
             self.root.statusPrint("Command not sent due to arm not calibrated")
             return
         # Send the serial command
-        self.serialController.sendSerial(str(command))
         self.awaitingMoveResponse = True # Set the awaiting move response flag 
-    
+        self.serialController.sendSerial(str(command))
+        
     def reset(self):
         self.awaitingMoveResponse = False
         self.serialController.waitingForResponse = False
@@ -552,14 +595,24 @@ class ArmController:
                 self.root.statusPrint("Move command executed successfully")
                 self.processPosition(response)
             self.awaitingMoveResponse = False # Reset the flag
+            self.root.timeoutStartedMove = False
     
     def moveTimeout(self):
-        time.sleep(10)
+        timeout = 15
+        timeInc = 0.1
+        timeElapsed = 0
+        #while timeout is not reached and still waiting for position response, keep waiting
+        while timeElapsed < timeout and self.awaitingMoveResponse:
+            time.sleep(timeInc)
+            timeElapsed += timeInc
+        #If awiating move response is still true, then we know we timed out so inform the user
         if self.awaitingMoveResponse is True:
-            self.root.terminalPrint("Move response timed out")
             self.root.statusPrint("Move response timed out")
             self.awaitingMoveResponse = False
-        self.root.timeoutStartedCal = False
+            self.root.timeoutStartedMove = False
+            self.root.printController.flag = "Move Timeout"
+            return
+        self.root.timeoutStartedMove = False
 
     def getCalOffsets(self):
         # Grab values from the entry fields, convert to integers, and save
@@ -706,6 +759,7 @@ class ArmController:
             self.processPosition(response)
             # Reset the awaiting position respone flag
             self.awaitingPosResponse = False
+            self.root.timeoutStartedPos = False
 
     def setOpenLoop(self):
         self.defaultMoveParameters.setLoopMode(1)
@@ -746,7 +800,7 @@ class ArmController:
             time.delay(0.05)
     def moveOrigin(self):
         if self.origin.checkOriginSet():
-            self.sendMJ(self.originX,self.originY,self.originZ,0,90,0, self.defaultMoveParameters)
+            self.sendMJ(Position(self.origin.x,self.origin.y,self.origin.z,0,90,0, None), self.defaultMoveParameters)
         else:
             return
     def updateDeltaFromOrigin(self):
@@ -758,7 +812,7 @@ class ArmController:
         self.root.yDeltaOrigin.config(text=deltaY)
         self.root.zDeltaOrigin.config(text=deltaZ)
     def moveRecommendedOrigin(self):
-        self.sendMJ(350,0,170,0,90,0, self.defaultMoveParameters)
+        self.sendMJ(Position(400,0,350,0,90,0, None), self.defaultMoveParameters)
     #----------------------------Testing Functions----------------------------------------
 
     #example if given gcode or some other file and converted
@@ -896,4 +950,3 @@ class MoveCommand:
         elif self.type=="RJ":
             command = f"RJA{self.A}B{self.B}C{self.C}D{self.D}E{self.E}F{self.F}J7{self.J7}J80.00J90.00S{self.moveParameters.speedType}{self.moveParameters.speed}Ac{self.moveParameters.acceleration}Dc{self.moveParameters.deceleration}Rm{self.moveParameters.ramp}WNLm{self.moveParameters.loopMode*6}\n"
         return command
-    
