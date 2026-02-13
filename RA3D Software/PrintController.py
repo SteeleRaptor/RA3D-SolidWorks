@@ -1,3 +1,4 @@
+from time import time
 from tkinter import *
 from tkinter import filedialog
 import os, re, copy, threading
@@ -7,9 +8,9 @@ class PrintController:
     def __init__(self, root):
         self.root = root
         #Placeholder boundaries, should be adjusted
-        self.maxBoundaryY = [-100,100]
-        self.maxBoundaryX = [200,500]
-        self.maxBoundaryZ = [100,600]
+        self.maxBoundaryY = [-130,130]
+        self.maxBoundaryX = [260,500] #bed is at 550
+        self.maxBoundaryZ = [324,450]
         self.bufferBoundary = 50 # Warning pops up if this boundary is entered
         self.selectedFilepath = None
         self.gcodeLines = []
@@ -17,9 +18,13 @@ class PrintController:
         self.fileOpen = False
         self.printing = False
         self.printPaused = False
+        self.cornerSweeping = False
+        self.bedCalibration = False
+        #Flag variable for errors
+        self.flag = None
         self.origin = root.armController.origin
         #corners are absolute, may change to relative to origin
-        self.calibrationCorners = [Position(430,40,145,0,90,0,None),Position(470,40,145,0,90,0,None),Position(470,-40,145,0,90,0,None),Position(430,-40,145,0,90,0,None)]
+        self.calibrationCorners = [Position(280,120,325,0,90,0,None),Position(490,120,325,0,90,0,None),Position(490,-120,325,0,90,0,None),Position(280,-120,325,0,90,0,None)]
         # Parameters for printing coordinates
         #self.xBounds = [300, 500] # X Min & X Max
         #self.yBounds = [-100, 100] # Y Min & Y Max
@@ -27,10 +32,11 @@ class PrintController:
         # Parameters used for saving the last used coordinate information
         self.lastPos = Position(None,None,None,None,None,None,self.origin)
         self.printPos = Position(None,None,None,None,None,None,self.origin)
-        self.defaultPrintParameters = MoveParameters(20,5,5,15,0,"m") #10mm/s print speed
+        self.defaultPrintParameters = MoveParameters(50,5,5,15,0,"m") #20mm/s print speed
         self.lastF = 0.0
         self.lastE = 0.0
         self.currentInstruction = 0
+        
 
 
     def selectFile(self):
@@ -86,12 +92,21 @@ class PrintController:
         if not self.origin.checkOriginSet():
             self.root.statusPrint("Origin not set, print cancelled")
             return
-        
-
+        if self.root.armController.checkIfBusy():
+            self.root.statusPrint("Arm is busy, cannot start print")
+            return
+        if self.cornerSweeping == True:
+            self.root.statusPrint("Cannot start print while corner sweeping")
+            return
+        if self.bedCalibration == True:
+            self.root.statusPrint("Cannot start print while calibrating bed")
+            return
+        #Resume print if paused
         if self.printPaused == True and self.printing == True:
             self.printPaused = False
             return
-
+        #Reset flag
+        self.flag = None
         # When starting print, reset the "last*" parameters
         self.syncOrigin()
         print(self.origin.z, "test2")
@@ -126,7 +141,7 @@ class PrintController:
         self.root.terminalPrint(f"Point: {point}") # Print the returned point list
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.printParemeters,feedrate=feedrate)
+        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5], MoveParameters=self.defaultPrintParameters,feedrate=feedrate)
 
     def pausePrint(self):
         self.printing = False
@@ -190,7 +205,7 @@ class PrintController:
 
             #Check if point is in boundary else pause print
             if self.checkPos(self.printPos):
-                return [f,e]
+                return ["Success",f,e]
             else:
                 self.pausePrint()
             # TODO: Additional processing for F to control speed or something
@@ -200,11 +215,15 @@ class PrintController:
             # TODO: Might make a custom datatype for storing position data that can be used
             #newLine = f"MLX{x}Y{y}Z{z}Rz{Rz}Ry{Ry}Rx{Rx}J70.00J80.00J90.00Sp{self.root.armController.speed}Ac{self.root.armController.acceleration}Dc{self.root.armController.deceleration}Rm{self.root.armController.ramp}Rnd0WFLm000000Q0\n"
             #return newLine
-            return ""
+            return "Error"
 
     # This is the main function that will loop when printing a file
     def printLoop(self):
         if self.printing == False:
+            return
+        if self.flag != None:
+            self.root.statusPrint(f"Print paused due to error: {self.flag}")
+            self.pausePrint()
             return
         if self.currentInstruction > len(self.gcodeLines) - 1:
             self.root.statusPrint("End of program reached")
@@ -218,13 +237,22 @@ class PrintController:
         self.currentInstruction += 1 # Increment currentInstruction
         self.root.progressBar["value"] = (self.currentInstruction / len(self.gcodeLines)) * 100 # Update progress bar to match
         self.root.terminalPrint(f"Line: {lineToConvert}")# Print the line we're converting
-        [feedRate, extrudeRate] = self.gcodeToTeensy(lineToConvert) # Convert line to [X, Y, Z, Rx, Ry, Rz], updates printPos
-        if feedRate == "": # If the point is blank, don't try to send a command
+        [message,feedRate, extrudeRate] = self.gcodeToTeensy(lineToConvert) # Convert line and updates printPos
+        
+        #Message Processing
+        if message == "Blank" or message == "Error": # If the point is blank, don't try to send a command
             return
+        # TODO: Add waiting for temperature to heat up from M104/M109 commands
+        if message == "Wait":
+            self.waiting = True
+            return
+        
+        #Execute move command
         MoveParameters = copy.deepcopy(self.defaultPrintParameters)
         if feedRate != None:
             MoveParameters.speedMode = "m"
-            MoveParameters.speed = feedRate
+            #Conver to mm/s from mm/min
+            MoveParameters.speed = feedRate / 60
         self.root.terminalPrint(f"Point: {self.printPos.GetAbsolute()}") # Print the returned point list
         # Send the command to the arm
         # TODO Find/create a better move command, consider using moveG/drivemotorsG for gcode
@@ -233,15 +261,6 @@ class PrintController:
     def syncOrigin(self):
         self.origin = self.root.armController.origin
 
-    def startPrintBedCalibration(self):
-        if self.origin.originSet == False or self.origin == None:
-            self.root.statusPrint("Origin not set, cannot begin leveling")
-            return
-        self.bedCalibration = True
-        self.bedCalStep = 1
-        self.syncOrigin()
-        self.nextBedCalibration()
-    
     #determines whether a position is within the boundaries of the printer
     def checkBoundary(self, pos):
         # check whether position is within buffer boundary, if so print warning
@@ -256,8 +275,27 @@ class PrintController:
             return False
         return True
     
+    def startPrintBedCalibration(self):
+        self.flag = None
+        if self.root.armController.checkIfBusy():
+            self.root.statusPrint("Arm is busy, cannot start bed calibration")
+            return
+        if self.printing == True:
+            self.root.statusPrint("Cannot start bed calibration while printing")
+            return
+        '''if self.origin.originSet == False or self.origin == None:
+            self.root.statusPrint("Origin not set, cannot begin leveling")
+            return'''
+        if self.cornerSweeping == True:
+            self.root.statusPrint("Cannot start bed calibration while corner sweeping")
+            return
+        self.bedCalibration = True
+        self.bedCalStep = 1
+        self.syncOrigin()
+        self.nextBedCalibration()
+
     def nextBedCalibration(self):
-        if self.bedCalibration == True:
+        if self.bedCalibration == True and self.flag == None:
             bedCalibrationThread = threading.Thread(target=self.bedCalibrationStep)
             bedCalibrationThread.start()
     
@@ -266,19 +304,17 @@ class PrintController:
         self.root.cornerLabel.config(text=f"Current Corner: {self.bedCalStep}")
         posStep = copy.deepcopy(currentCornerPos)
         posStep.z += 100
-        point =posStep.GetAbsolute()
-        self.root.armController.sendMJ(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],moveParameters=self.printParemeters)
-        while self.root.armController.awaitingMoveResponse:
+        self.root.armController.sendMJ(posStep,moveParameters=self.defaultPrintParameters)
+        while self.root.armController.awaitingMoveResponse and self.flag == None:
             self.root.armController.moveUpdate()
-        point =posStep.GetAbsolute()
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],moveParameters=self.printParemeters)
-        posStep.z +- 50
-        while self.root.armController.awaitingMoveResponse:
+        self.root.armController.sendML(posStep,moveParameters=self.defaultPrintParameters)
+        posStep.z -= 50
+        while self.root.armController.awaitingMoveResponse and self.flag == None:
             self.root.armController.moveUpdate()
-        point = currentCornerPos.GetAbsolute()
-        self.root.armController.sendML(X=point[0], Y=point[1], Z=point[2], Rx=point[3], Ry=point[4], Rz=point[5],moveParameters=self.printParemeters)
-        while self.root.armController.awaitingMoveResponse:
+        self.root.armController.sendML(currentCornerPos,moveParameters=self.defaultPrintParameters)
+        while self.root.armController.awaitingMoveResponse and self.flag == None:
             self.root.armController.moveUpdate()
+        self.root.statusPrint(f"Corner {self.bedCalStep} calibration complete")
         self.bedCalStep += 1
         #Move To position
         #End calibration
@@ -286,5 +322,48 @@ class PrintController:
             self.bedCalibration=False
             self.root.armController.moveHome()
 
+    def startCornerSweep(self):
+        self.flag = None
+        self.cornerSweeping = True
+        if self.root.armController.checkIfBusy():
+            self.root.statusPrint("Arm is busy, cannot start corner sweep")
+            return
+        if self.printing == True:
+            self.root.statusPrint("Cannot start corner sweep while printing")
+            return
+        if self.bedCalibration == True:
+            self.root.statusPrint("Cannot start corner sweep while calibrating bed")
+            return
+        cornerSweepThread = threading.Thread(target=self.cornerSweep)
+        cornerSweepThread.start()
 
-
+    # Used to sweep the corners without lifting to ensure kinematics are level to bed
+    def cornerSweep(self):
+        #Move to first corner like bed calibration
+        currentCornerPos = self.calibrationCorners[0]
+        self.root.cornerLabel.config(text=f"Current Corner: 1")
+        posStep = copy.deepcopy(currentCornerPos)
+        posStep.z += 100
+        self.root.armController.sendMJ(posStep,moveParameters=self.defaultPrintParameters)
+        while self.root.armController.awaitingMoveResponse and self.flag == None:
+            time.sleep(0.1)
+        self.root.armController.sendML(posStep,moveParameters=self.defaultPrintParameters)
+        posStep.z -= 50
+        while self.root.armController.awaitingMoveResponse and self.flag == None:
+            self.root.armController.moveUpdate()
+        self.root.armController.sendML(currentCornerPos,moveParameters=self.defaultPrintParameters)
+        while self.root.armController.awaitingMoveResponse and self.flag == None:
+            self.root.armController.moveUpdate()
+        moveOrder = [2,3,4,1,3,2,3]
+        moveOrder= [x-1 for x in moveOrder]
+        for i in moveOrder:
+            time.delay(2)
+            currentCornerPos = self.calibrationCorners[i]
+            self.root.cornerLabel.config(text=f"Current Corner: {i+1}")
+            self.root.armController.sendML(currentCornerPos,moveParameters=self.defaultPrintParameters)
+            while self.root.armController.awaitingMoveResponse and self.flag == None:
+                self.root.armController.moveUpdate()
+            self.bedCalStep += 1
+            #Move To position
+            #End calibration
+        self.cornerSweeping = False
