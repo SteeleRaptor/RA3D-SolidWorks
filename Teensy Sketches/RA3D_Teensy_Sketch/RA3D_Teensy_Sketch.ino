@@ -109,7 +109,7 @@ float J3axisLimNeg = 89;
 float J4axisLimPos = 180;
 float J4axisLimNeg = 180;
 float J5axisLimPos = 105;
-float J5axisLimNeg = 105-19;//J5 limit switch is about 19 degrees closer
+float J5axisLimNeg = 105-39;//This seems way too high, but the arm is moving itself into the wrong position
 float J6axisLimPos = 180;
 float J6axisLimNeg = 180;
 float J7axisLimNeg = 0;
@@ -3266,9 +3266,9 @@ void loop() {
       J2TargetStep = J2stepCen;
       J3TargetStep = J3stepCen;
       J4TargetStep = J4stepCen;
-      J5TargetStep = J5step90;
+      J5TargetStep = J5stepCen;
       J6TargetStep = J6stepCen;*/
-      driveMotorsJ(J1stepCen, J2stepCen, J3stepCen, J4stepCen, J5step90, J6stepCen, J7stepCen, J8stepCen, J9stepCen, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
+      driveMotorsJ(J1stepCen, J2stepCen, J3stepCen, J4stepCen, J5stepCen, J6stepCen, J7stepCen, J8stepCen, J9stepCen, J1dir, J2dir, J3dir, J4dir, J5dir, J6dir, J7dir, J8dir, J9dir, SpeedType, SpeedVal, ACCspd, DCCspd, ACCramp);
       sendRobotPos();
       inData = "";  // Clear recieved buffer
     }
